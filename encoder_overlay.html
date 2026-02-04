@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Encoder Overlay</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: white;
+            overflow: hidden;
+        }
+        #overlay-container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 15px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .stat-label {
+            font-weight: bold;
+            color: #cccccc;
+        }
+        .stat-value {
+            font-weight: bold;
+        }
+        .green { color: #00ff00; }
+        .yellow { color: #ffff00; }
+        .red { color: #ff0000; }
+        .orange { color: #ffa500; }
+    </style>
+</head>
+<body>
+    <div id="overlay-container">
+        <!-- Stats will be populated by JavaScript -->
+    </div>
+    
+    <script>
+        function updateOverlay() {
+            fetch('/overlay_data.json?t=' + new Date().getTime())
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('overlay-container');
+                    container.innerHTML = '';
+                    
+                    // Add each enabled stat to the overlay
+                    Object.keys(data.stats).forEach(statKey => {
+                        if (data.enabled[statKey]) {
+                            const stat = data.stats[statKey];
+                            const statElement = document.createElement('div');
+                            statElement.className = 'stat-item';
+                            
+                            statElement.innerHTML = `
+                                <span class="stat-label">${stat.label}:</span>
+                                <span class="stat-value ${stat.color}">${stat.value}</span>
+                            `;
+                            
+                            container.appendChild(statElement);
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching overlay data:', error));
+        }
+        
+        // Update every second
+        setInterval(updateOverlay, 500);
+        
+        // Initial update
+        updateOverlay();
+    </script>
+</body>
+</html>
+        

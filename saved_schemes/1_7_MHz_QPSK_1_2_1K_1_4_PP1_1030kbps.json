@@ -1,0 +1,28 @@
+{
+    "parameters": {
+        "channel_bandwidth": "1.7 MHz",
+        "fft_size": "1K",
+        "guard_interval": "1/4",
+        "data_symbols": 342,
+        "fec_blocks": 8.0,
+        "code_rate": "1/2",
+        "modulation": "QPSK",
+        "frame_size": "Normal",
+        "carrier_mode": "Normal",
+        "pilot_pattern": "PP1",
+        "l1_modulation": "QPSK",
+        "total_cells": 270020,
+        "dummy_cells": 8062,
+        "useful_cells": 259200
+    },
+    "results": {
+        "normal_bitrate_bps": 1030284.04017,
+        "normal_bitrate_kbps": 1030.28404017,
+        "normal_bitrate_mbps": 1.03028404017,
+        "high_efficiency_bitrate_bps": 1035793.580492,
+        "high_efficiency_bitrate_kbps": 1035.793580492,
+        "high_efficiency_bitrate_mbps": 1.035793580492,
+        "frame_time_ms": 249.469069,
+        "clock_rate": 1845070.422535
+    }
+}
