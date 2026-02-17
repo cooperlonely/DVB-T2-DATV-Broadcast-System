@@ -2983,23 +2983,35 @@ class DVBT2EncoderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("R6WAX DVB-T2")
+
+        # Временные переменные для предотвращения ошибок
+        self.emergency_file_path = tk.StringVar(value="")
         
         # Configuration file in script directory
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_file = os.path.join(script_dir, "dvbt2_encoder_config.json")
-        print(f"🎯 Config will be saved to: {self.config_file}")
+        print(f"🎯 Config will be saved to: {self.config_file}")        
+
+        # Python paths
+        self.gnuradio_python_path = tk.StringVar(value="")
+        self.portable_python_path = os.path.join(os.path.dirname(__file__), "python_portable", "python.exe")
+        self.obs_path = tk.StringVar(value="")
+        
+        # System paths from conf.cfg 
+        self.ffmpeg_path_from_config = "ffmpeg.exe"  # значение по умолчанию
+        self.dvbt2rate_path = "dvbt2rate.exe"
+        self.conda_base_path = ""
+                
+        # системные пути из conf.cfg
+        self.system_config_file = os.path.join(script_dir, "conf.cfg")
+        self.load_system_paths_from_config()
         
         # Config autosave timer
         self._save_timer = None
         
         # Preset update timer
         self._preset_update_timer = None
-        
-        # Python paths
-        self.gnuradio_python_path = tk.StringVar(value="")
-        self.portable_python_path = os.path.join(os.path.dirname(__file__), "python_portable", "python.exe")
-            
-        
+                           
         # Initialize playlist manager
         self.playlist_manager = MPCPlaylistManager(self)
         
@@ -3021,12 +3033,11 @@ class DVBT2EncoderGUI:
         # Save window size setting
         self.save_window_size = tk.BooleanVar(value=False)
         
-        # ⚡ ДОБАВЬТЕ ЭТИ ПЕРЕМЕННЫЕ ДЛЯ ZMQ СТАТИСТИКИ
+        # ZMQ СТАТИСТИКА
         self.bitrate_deviation = tk.StringVar(value="0.0%")
         self.real_zmq_output_rate = tk.StringVar(value="0.0")
                 
         # Processes
-        self.ffmpeg_process = None
         self.buffer_running = False
         self.buffer_thread = None
         self.is_streaming = False
@@ -3034,11 +3045,10 @@ class DVBT2EncoderGUI:
         self.modulator_running = False
         
         # Auto-start setting
-        self.auto_start = tk.BooleanVar(value=True)
-        self.streaming_auto_start = tk.BooleanVar(value=True)  # Эта должна быть
+        self.auto_start = tk.BooleanVar(value=False)
+        self.streaming_auto_start = tk.BooleanVar(value=False)  # Эта должна быть
         
         # OBS Studio settings
-        self.obs_path = tk.StringVar(value="")
         self.obs_auto_start = tk.BooleanVar(value=False)
         self.obs_process = None
         self.obs_running = False
@@ -3051,32 +3061,27 @@ class DVBT2EncoderGUI:
         self.on_air_status = tk.StringVar(value="OFF AIR")
         self.overlay_status = tk.StringVar(value="Stopped")
         
-        # Network settings - БЕЗ ЗНАЧЕНИЙ ПО УМОЛЧАНИЮ
-        self.localhost_ip = tk.StringVar()
-        self.output_ip = tk.StringVar()
-        self.udp_input_port = tk.StringVar()
-        self.udp_output_port = tk.StringVar()
-        self.muxrate = tk.StringVar()
+        # Network settings - СО ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+        self.localhost_ip = tk.StringVar(value="127.0.0.1")
+        self.output_ip = tk.StringVar(value="127.0.0.1")
+        self.udp_input_port = tk.StringVar(value="3005")
+        self.udp_output_port = tk.StringVar(value="8002")
+        self.muxrate = tk.StringVar(value="8388080.355572")
         
         # RF Modulator settings - БЕЗ ЗНАЧЕНИЙ ПО УМОЛЧАНИЮ
-        self.modulator_preset = tk.StringVar()
-        self.modulator_auto_start = tk.BooleanVar()
-        self.pluto_ip = tk.StringVar()
-        self.frequency = tk.StringVar()
-        self.frequency_mhz_var = tk.StringVar()
+        self.modulator_preset = tk.StringVar(value="1_7_MHz_256QAM_5_6_1K_1_16_PP1_8388kbps")
+        self.modulator_auto_start = tk.BooleanVar(value=False)
+        self.pluto_ip = tk.StringVar(value="192.168.80.70")
+        self.frequency = tk.StringVar(value="431000000")
+        self.frequency_mhz_var = tk.StringVar(value="431")
         self.rf_gain = tk.IntVar()
-        self.rf_gain_percent = tk.IntVar()
+        self.rf_gain_percent = tk.IntVar(value="100")
         
         # НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ВЫБОРА УСТРОЙСТВА
         self.selected_device = tk.StringVar(value="plutosdr")
         self.device_arguments = tk.StringVar()  # Текстовое поле для device args
         self.device_mode = tk.StringVar(value="uri=ip")  # Режим для pluto
-        
-        self.frequency = tk.StringVar()
-        self.frequency_mhz_var = tk.StringVar()
-        self.rf_gain = tk.IntVar()
-        self.rf_gain_percent = tk.IntVar()
-        
+                
         # Конфигурация устройств
         self.device_configs = {
             'plutosdr': {
@@ -3149,47 +3154,59 @@ class DVBT2EncoderGUI:
         self.buffer_target = tk.StringVar(value="0")
         
         # Encoder statistics
-        self.encoder_speed = tk.StringVar(value="0.00")
-        self.encoder_bitrate = tk.StringVar(value="0")
-        self.encoder_quality = tk.StringVar(value="N/A")
-        self.stream_time = tk.StringVar(value="00:00:00")
+        self.encoder_speed = tk.StringVar(value="---")
+        self.encoder_bitrate = tk.StringVar(value="---")
+        self.encoder_quality = tk.StringVar(value="---")
+        self.stream_time = tk.StringVar(value="---")
+        
+        # Channel statistics storage
+        self.channel_speed = {}  # {channel_num: StringVar}
+        self.channel_bitrate = {}  # {channel_num: StringVar}
+        self.channel_speed_labels = {}  # {channel_num: Label}
+        self.channel_bitrate_labels = {}  # {channel_num: Label}
+        self.channel_last_speed = {}  # {channel_num: float}
+        self.channels_stats_container = None  # Будет создан в create_stats_tab
+        self.channel_emergency_labels = {}  # {channel_num: Label} 
         
         # CPU statistics
         self.cpu_load = tk.StringVar(value="0%")
         
         # UDP Buffer settings
-        self.target_buffer = tk.IntVar(value=2000)
-        self.min_buffer = tk.IntVar(value=1000)
+        self.target_buffer = tk.IntVar(value=8000)
+        self.min_buffer = tk.IntVar(value=2000)
         self.max_buffer = tk.IntVar(value=100000)
-        self.calibration_packets = tk.IntVar(value=4000)
-        self.calibration_time = tk.DoubleVar(value=10)
+        self.calibration_packets = tk.IntVar(value=8000)
+        self.calibration_time = tk.DoubleVar(value=20)
         
-        # Video settings - ТОЛЬКО ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ БЕЗ ЗНАЧЕНИЙ
-        self.video_resolution = tk.StringVar()
-        self.video_fps = tk.StringVar()
-        self.video_gop = tk.StringVar()
-        self.video_codec = tk.StringVar()
-        self.video_bitrate = tk.StringVar()
-        self.video_bufsize = tk.StringVar()
-        self.video_preset = tk.StringVar()
-        self.video_tune = tk.StringVar()
-        self.custom_options = tk.StringVar()
+        # Video settings - СО ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+        self.video_resolution = tk.StringVar(value="1920x1080")
+        self.video_fps = tk.StringVar(value="30")
+        self.video_gop = tk.StringVar(value="90")
+        self.video_codec = tk.StringVar(value="libx265")
+        self.video_bitrate = tk.StringVar(value="6662")
+        self.video_bufsize = tk.StringVar(value="3331")
+        self.video_preset = tk.StringVar(value="ultrafast")
+        self.video_tune = tk.StringVar(value="animation")
+        self.custom_options = tk.StringVar(value=" ")
         
-        # Audio settings - ТОЛЬКО ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ БЕЗ ЗНАЧЕНИЙ
-        self.audio_codec = tk.StringVar()
-        self.audio_bitrate = tk.StringVar()
-        self.audio_sample_rate = tk.StringVar()
-        self.audio_channels = tk.StringVar()
+        # Audio settings - СО ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+        self.audio_codec = tk.StringVar(value="aac")
+        self.audio_bitrate = tk.StringVar(value="128k")
+        self.audio_sample_rate = tk.StringVar(value="48000")
+        self.audio_channels = tk.StringVar(value="stereo")
+
+        # Window capture settings (НОВОЕ)
+        self.available_windows = []  # список доступных окон
         
         # Input devices
-        self.video_input_device = tk.StringVar()
-        self.audio_input_device = tk.StringVar()
+        self.video_input_device = tk.StringVar(value="OBS Virtual Camera")
+        self.audio_input_device = tk.StringVar(value="CABLE Output (VB-Audio Virtual Cable)")
         self.available_video_devices = []
         self.available_audio_devices = []
         
-        # Metadata
-        self.service_name = tk.StringVar()
-        self.service_provider = tk.StringVar()
+        # Metadata - СО ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+        self.service_name = tk.StringVar(value="CallSign")
+        self.service_provider = tk.StringVar(value="DVB-T2 DATV")
         
         # Overlay settings
         self.overlay_enabled = tk.BooleanVar(value=False)
@@ -3204,7 +3221,7 @@ class DVBT2EncoderGUI:
         self.audio_channels_combo = None
         
         # Overlay display options
-        self.overlay_stream_time = tk.BooleanVar(value=True)
+        self.overlay_stream_time = tk.BooleanVar(value=False)
         self.overlay_ts_bitrate = tk.BooleanVar(value=True)
         self.overlay_video_bitrate = tk.BooleanVar(value=True)
         self.overlay_speed = tk.BooleanVar(value=True)
@@ -3216,7 +3233,7 @@ class DVBT2EncoderGUI:
         self.overlay_audio_bitrate = tk.BooleanVar(value=True)
         self.overlay_buffer_input = tk.BooleanVar(value=True)
         self.overlay_buffer_output = tk.BooleanVar(value=True)
-        self.overlay_buffer_fill = tk.BooleanVar(value=True)
+        self.overlay_buffer_fill = tk.BooleanVar(value=False)
         self.overlay_modulation = tk.BooleanVar(value=True)
         
         # Codec presets and tunes
@@ -3261,28 +3278,28 @@ class DVBT2EncoderGUI:
             'input_bitrate': 0,
             'output_bitrate': 0
         }
-        
-        # Initialize frequency variable
-        #self.frequency_mhz_var = tk.StringVar()
-        
+                
         # Multiplex settings
         self.multiplex_channels = OrderedDict()  # Хранит данные о каналах
         self.max_channels = 10        
         
         # Multiplex mode
         self.multiplex_mode = tk.BooleanVar(value=False)  # НОВАЯ ПЕРЕМЕННАЯ        
+        self.multiplex_mode.trace_add('write', self.on_multiplex_mode_changed)
         
         # Load saved configuration
         self.load_config()
-        self.create_gui()
-
-        # # UDP Source settings для каждого канала
-        # self.udp_source_urls = {}  # Будет хранить URL для каждого канала
-        # self.udp_stream_maps = {}  # Будет хранить карты потоков для каждого канала
-        # self.udp_channel_names = {}  # Будет хранить имена каналов из UDP
         
+        # После load_config()
+        print(f"DEBUG: emergency_file_path after load: '{self.emergency_file_path.get()}'")
+        
+        self.create_gui()        
+                
         # Load multiplex channels after GUI is created
-        self.root.after(500, self.load_multiplex_channels)                
+        self.root.after(500, self.load_multiplex_channels)
+        
+        # Инициализация UI статистики после загрузки каналов
+        self.root.after(1000, self.init_channels_stats_ui)
         
         # После создания GUI добавляем обработчик переключения вкладок
         self.root.bind('<<NotebookTabChanged>>', self.on_tab_changed)
@@ -3293,10 +3310,6 @@ class DVBT2EncoderGUI:
         self.setup_config_autosave()      
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)        
 
-        # Auto-find paths if not set
-        #if not self.gnuradio_python_path.get():
-            #self.auto_configure_radioconda()
-
         # ⚡ ДОБАВЛЕНО: Проверяем статус OBS Studio при запуске
         if self.is_obs_running_system():
             self.obs_running = True
@@ -3304,25 +3317,54 @@ class DVBT2EncoderGUI:
             self.obs_start_btn.config(state='disabled')
             self.obs_stop_btn.config(state='normal')
 
-        # In __init__ method, after load_config()
+        # after load_config()
         if not self.obs_path.get():
             self.auto_find_obs()
 
         self.root.bind('<Configure>', self.on_window_configure)        
             
         self.root.after(100, self.finish_playlist_setup)
-        
-        # Добавьте эти переменные
-        self.current_ffmpeg_process = None  # Для хранения процесса FFmpeg для обновления метаданных
-        self.ffmpeg_process = None  # Текущий процесс FFmpeg
-        
+                
         # Инициализируем переменные для отслеживания метаданных
         for i in range(1, 5):
             setattr(self, f'last_metadata_ch{i}', "") 
+            
+        # Состояния канала
+        self.CHANNEL_STATE_ACTIVE = 'active'      # Работает оригинальный процесс
+        self.CHANNEL_STATE_FAILED = 'failed'      # Упал, играет заставка
 
+        # Данные каналов
+        self.channel_states = {}  # {channel_num: state}
+        self.channel_fail_time = {}  # {channel_num: timestamp}
+        self.channel_individual_emergency = {}  # {channel_num: process}
+        self.channel_check_timers = {}          # {channel_num: timer_id}
+        self.channel_recovery_count = {}        # {channel_num: success_count}
+        self.channel_fail_count = {}        # {channel_num: count}
+        self.channel_long_check = {}        # {channel_num: bool}
+        self.channel_long_results = {}  # {channel_num: [bool, bool, bool, bool, bool]}
+        self.channel_long_cooldown = {}  # {channel_num: bool}
+
+        # Window recovery tracking (НОВОЕ)
+        self.window_search_state = {}  # {channel_num: {'attempts': int, 'last_search': time, 'original_title': str}}
+        self.window_search_intervals = [10, 30, 60, 120, 300]  # интервалы между попытками (секунд)
+        
+        # Speed monitoring for auto-restart (НОВЫЕ ПЕРЕМЕННЫЕ)
+        self.main_speed_history = []  # история скоростей основного мультиплексора
+        self.speed_restart_threshold = 0.950  # порог для перезапуска
+        self.speed_restart_count = 8  # сколько раз подряд ниже порога для перезапуска
+        self.speed_restart_cooldown = 0  # время последнего перезапуска
+        self.speed_restart_cooldown_seconds = 30  # не перезапускать чаще чем раз в 30 секунд
+                         
         # Для отслеживания порядка фильтров
-        self.channel_filter_indices = {}  # {channel_num: filter_index}            
-                   
+        self.channel_filter_indices = {}  # {channel_num: filter_index} 
+        
+        # Multi-process system variables
+        self.channel_processes = {}  # {channel_num: {'process': subprocess, 'pid': int, 'stdin': pipe, 'port': int, 'is_radio': bool, 'is_emergency': bool}}
+        self.emergency_process = None  # Emergency stream process
+        self.emergency_stream_url = "udp://@238.0.0.1:3033"  # Fixed emergency port
+        self.base_multicast_port = 3020  # Starting port for channels
+        self.main_multiplexer_process = None  # Main multiplexer process 
+        
         # Start OBS monitoring
         self.check_obs_status()
         
@@ -4028,7 +4070,7 @@ class DVBT2EncoderGUI:
         """Setup auto-save triggers for all settings"""
         # Привязка к изменению текстовых полей
         text_variables = [
-            self.obs_path, self.service_name, 
+            self.service_name, 
             self.service_provider, self.localhost_ip, self.output_ip,
         # FFmpeg custom options
             self.custom_options,
@@ -4052,7 +4094,6 @@ class DVBT2EncoderGUI:
         numeric_variables = [
             self.udp_input_port, self.udp_output_port, self.muxrate,
             self.video_bitrate, self.video_bufsize, self.video_gop,
-            # УБРАЛИ: self.rf_gain - он уже выше
             self.target_buffer, self.min_buffer, self.max_buffer
         ]
         
@@ -4123,39 +4164,21 @@ class DVBT2EncoderGUI:
             return False  
             
     def find_ffmpeg(self):
-        """Находит ffmpeg в папке со скриптом"""
-        # Сначала проверяем конфиг файл
-        config_file = os.path.join(os.path.dirname(__file__), "conf.cfg")
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        # Пропускаем комментарии
-                        if line.startswith('#') or not line:
-                            continue
-                        
-                        if line.startswith("FFMPEG_PATH="):
-                            ffmpeg_path = line.split("=", 1)[1].strip()
-                            if ffmpeg_path and os.path.exists(ffmpeg_path):
-                                return ffmpeg_path
-            except Exception:
-                pass  # Если не удалось прочитать конфиг, продолжаем поиск
+        """Find FFmpeg executable using path from conf.cfg"""
+        # Используем путь из конфига
+        if hasattr(self, 'ffmpeg_path_from_config') and self.ffmpeg_path_from_config:
+            # Если это просто "ffmpeg.exe", возвращаем как есть (надеемся что в PATH)
+            if self.ffmpeg_path_from_config == "ffmpeg.exe":
+                return "ffmpeg.exe"
+            
+            # Если это полный путь, проверяем существование
+            if os.path.exists(self.ffmpeg_path_from_config):
+                return self.ffmpeg_path_from_config
+            else:
+                self.log_message(f"⚠️ FFmpeg not found at: {self.ffmpeg_path_from_config}", "buffer")
         
-        # Ищем в разных возможных местах
-        possible_paths = [
-            os.path.join(os.path.dirname(__file__), "ffmpeg.exe"),
-            os.path.join(os.path.dirname(__file__), "ffmpeg"),
-            os.path.join(os.path.dirname(__file__), "bin", "ffmpeg.exe"),
-            os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe"),
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                return path
-        
-        # Если не нашли в папке, используем системный ffmpeg
-        return "ffmpeg"          
+        # Если нет в конфиге, возвращаем значение по умолчанию
+        return "ffmpeg.exe"
                        
     def get_preset_display_name(self, preset_name):
         """Get readable preset name for overlay display"""
@@ -4191,60 +4214,14 @@ class DVBT2EncoderGUI:
             return preset_name
 
     def find_gnuradio_python(self):
-        """Find GNU Radio Python executable (RadioConda)"""
-        try:
-            # Сначала проверяем конфиг файл
-            config_file = os.path.join(os.path.dirname(__file__), "conf.cfg")
-            if os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            line = line.strip()
-                            if line.startswith("RADIOCONDA_PATH="):
-                                python_path = line.split("=", 1)[1].strip()
-                                if python_path and os.path.exists(python_path):
-                                    self.log_message(f"✅ Found GNU Radio Python in config: {python_path}", "buffer")
-                                    
-                                    return python_path
-                except Exception as e:
-                    self.log_message(f"⚠️ Error reading config: {e}", "buffer")
-            
-            # Если не нашли в конфиге, ищем как раньше
-            # Common RadioConda installation paths
-            common_paths = [
-                os.path.expandvars("%USERPROFILE%\\radioconda\\python.exe"),
-                os.path.expandvars("%LOCALAPPDATA%\\radioconda\\python.exe"),
-                "C:\\radioconda\\python.exe",
-                os.path.expandvars("%PROGRAMFILES%\\radioconda\\python.exe"),
-            ]
-            
-            # Check common paths
-            for path in common_paths:
-                if os.path.exists(path):
-                    self.log_message(f"✅ Found GNU Radio Python: {path}", "buffer")
-                    
-                    return path
-            
-            # Try to find via conda command
-            try:
-                result = subprocess.run(['conda', 'info', '--base'], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    conda_base = result.stdout.strip()
-                    python_path = os.path.join(conda_base, "python.exe")
-                    if os.path.exists(python_path):
-                        self.log_message(f"✅ Found conda Python: {python_path}", "buffer")
-                        
-                        return python_path
-            except:
-                pass
-            
-            self.log_message("⚠️ Could not auto-find GNU Radio Python", "buffer")
-            return None
-            
-        except Exception as e:
-            self.log_message(f"❌ Error finding GNU Radio Python: {e}", "buffer")
-            return None
+        """Get GNU Radio Python path from conf.cfg"""
+        # Просто возвращаем путь, который уже загружен из конфига
+        path = self.gnuradio_python_path.get()
+        if path and os.path.exists(path):
+            return path
+        
+        # Если путь пустой или не существует, возвращаем пустую строку
+        return ""
             
     def sync_calculator_with_preset(self):
         """Sync calculator with current preset after GUI is fully loaded"""
@@ -4271,7 +4248,11 @@ class DVBT2EncoderGUI:
     def on_tab_changed(self, event):
         """При переключении вкладок убираем фокус со всех полей ввода"""
         # Переключаем фокус на основное окно
-        self.root.focus_set()            
+        self.root.focus_set()     
+
+    def on_multiplex_mode_changed(self, *args):
+        """Обработчик изменения режима мультиплекса"""
+        self.update_channels_visibility()
             
     def on_window_configure(self, event=None):
         """Handle window resize/move and save geometry if enabled"""
@@ -4679,14 +4660,29 @@ class DVBT2EncoderGUI:
         main_frame = ttk.Frame(parent)
         main_frame.pack(fill='both', expand=True)
         
-        # Header with description - более компактный
-        header_frame = ttk.LabelFrame(main_frame, text="Multiplex Configuration", padding="4")
-        header_frame.pack(fill='x', pady=(0, 6))
+        # # Header with description - более компактный
+        # header_frame = ttk.LabelFrame(main_frame, text="Multiplex Configuration", padding="4")
+        # header_frame.pack(fill='x', pady=(0, 6))
         
-        ttk.Label(header_frame, text="Add up to 10 channels to multiplex into single DVB-T2 stream", 
-                  font=('Arial', 9)).pack(pady=2)
-        ttk.Label(header_frame, text="Video bitrate is automatically divided between active channels",
-                  font=('Arial', 8), foreground='blue').pack(pady=1)
+        # ttk.Label(header_frame, text="Add up to 10 channels to multiplex into single DVB-T2 stream", 
+                  # font=('Arial', 9)).pack(pady=2)
+        # ttk.Label(header_frame, text="Video bitrate is automatically divided between active channels",
+                  # font=('Arial', 8), foreground='blue').pack(pady=1)
+
+        # Emergency stream file
+        emergency_frame = ttk.LabelFrame(main_frame, text="Emergency Stream", padding="4")
+        emergency_frame.pack(fill='x', pady=(0, 6))
+
+        row_frame = ttk.Frame(emergency_frame)
+        row_frame.pack(fill='x', pady=2)
+
+        ttk.Label(row_frame, text="Emergency File:", font=('Arial', 8), width=13).pack(side='left')
+        emergency_entry = ttk.Entry(row_frame, textvariable=self.emergency_file_path, 
+                                   width=30, font=('Arial', 8))
+        emergency_entry.pack(side='left', padx=2, fill='x', expand=True)
+
+        ttk.Button(row_frame, text="Browse", width=8,
+                  command=self.browse_emergency_file).pack(side='left', padx=2)
         
         # Scrollable area for channels
         canvas_frame = ttk.Frame(main_frame)
@@ -4730,6 +4726,142 @@ class DVBT2EncoderGUI:
         
         # Update add button state
         self.update_add_button_state()
+
+    def get_available_windows(self):
+        """Получение списка доступных окон через PowerShell"""
+        try:
+            # PowerShell команда для получения окон с заголовками
+            ps_command = "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object -ExpandProperty MainWindowTitle"
+            
+            result = subprocess.run(
+                ['powershell', '-Command', ps_command],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                encoding='utf-8',
+                errors='ignore'
+            )
+            
+            if result.returncode != 0:
+                self.log_message("PowerShell command failed", "buffer")
+                return []
+            
+            # Разбираем вывод (каждая строка - название окна)
+            windows = []
+            for line in result.stdout.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('MainWindowTitle') and not line.startswith('---'):
+                    windows.append(line)
+            
+            # Убираем дубликаты, но сохраняем порядок
+            seen = set()
+            unique_windows = []
+            for window in windows:
+                if window not in seen:
+                    seen.add(window)
+                    unique_windows.append(window)
+            
+            self.log_message(f"Found {len(unique_windows)} windows for capture", "buffer")
+            return unique_windows
+            
+        except subprocess.TimeoutExpired:
+            self.log_message("Timeout getting windows list", "buffer")
+            return []
+        except Exception as e:
+            self.log_message(f"Error getting windows: {e}", "buffer")
+            return []
+
+    def refresh_channel_windows(self, channel_num):
+        """Обновление списка доступных окон для канала"""
+        if channel_num not in self.multiplex_channels:
+            return
+        
+        channel_data = self.multiplex_channels[channel_num]
+        
+        # Получаем актуальный список окон
+        windows = self.get_available_windows()
+        self.available_windows = windows
+        
+        if 'window_combo' in channel_data and channel_data['window_combo']:
+            combo = channel_data['window_combo']
+            current_value = channel_data['window_title'].get()
+            
+            # Обновляем список значений
+            combo['values'] = windows if windows else ['No windows found']
+            
+            # Пытаемся сохранить выбранное окно, если оно еще существует
+            if current_value and current_value in windows:
+                # Окно все еще доступно - оставляем
+                pass
+            elif current_value:
+                # Ищем похожее окно
+                similar = self.find_similar_window(current_value, windows)
+                if similar:
+                    channel_data['window_title'].set(similar)
+                    self.log_message(f"CH{channel_num}: Found similar window: {similar[:50]}...", "buffer")
+                elif windows:
+                    # Берем первое доступное
+                    channel_data['window_title'].set(windows[0])
+                    self.log_message(f"CH{channel_num}: Using first available window", "buffer")
+            elif windows:
+                # Нет выбранного - берем первое
+                channel_data['window_title'].set(windows[0])
+
+    def find_similar_window(self, old_title, available_windows):
+        """Поиск похожего окна среди доступных"""
+        if not old_title or not available_windows:
+            return None
+        
+        import re
+        
+        # Логируем для отладки
+        self.log_message(f"Looking for window similar to: '{old_title[:50]}...'", "buffer")
+        
+        # 1. Сначала ищем точное совпадение (на всякий случай)
+        if old_title in available_windows:
+            return old_title
+        
+        # 2. Извлекаем основу названия (первые слова до версии и спецсимволов)
+        # Например: "Java FRN_Client V 5.03.2 - [R6WAX, Tagir]" -> "Java FRN_Client"
+        base_pattern = re.match(r'^([A-Za-z0-9_\-\.\s]+?)(?:\s+[Vv]\d+|\s*[-\[]|$)', old_title)
+        if base_pattern:
+            base_name = base_pattern.group(1).strip()
+            self.log_message(f"Base name extracted: '{base_name}'", "buffer")
+            
+            # Ищем окна, содержащие эту основу
+            for window in available_windows:
+                if base_name in window:
+                    self.log_message(f"Found window containing base name: '{window[:50]}...'", "buffer")
+                    return window
+        
+        # 3. Если не нашли, ищем по ключевым словам (берем первые 2-3 слова)
+        words = re.findall(r'[A-Za-z0-9_]+', old_title)
+        if len(words) >= 2:
+            # Берем первые 2-3 слова как ключевые
+            key_words = words[:3]
+            self.log_message(f"Key words: {key_words}", "buffer")
+            
+            best_match = None
+            best_score = 0
+            
+            for window in available_windows:
+                score = 0
+                window_lower = window.lower()
+                for word in key_words:
+                    if word.lower() in window_lower:
+                        score += 1
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = window
+            
+            if best_score >= 2:  # Нашли хотя бы 2 совпадения
+                self.log_message(f"Best match with score {best_score}: '{best_match[:50]}...'", "buffer")
+                return best_match
+        
+        # 4. Если ничего не нашли, возвращаем None
+        self.log_message("No similar window found", "buffer")
+        return None
         
     def create_default_channel_1(self):
         """Create default CH1 with values from main settings"""
@@ -4809,6 +4941,8 @@ class DVBT2EncoderGUI:
             'source_type': tk.StringVar(),
             'video_device': tk.StringVar(),
             'audio_device': tk.StringVar(),
+            'window_title': tk.StringVar(),  # НОВОЕ
+            'window_combo': None,  # НОВОЕ            
             'media_path': tk.StringVar(),
             'randomize': tk.BooleanVar(),
             'udp_url': tk.StringVar(),
@@ -4836,6 +4970,7 @@ class DVBT2EncoderGUI:
             'metadata_size': tk.IntVar(value=40),
             'metadata_color': tk.StringVar(value='violet'),
             'metadata_position': tk.IntVar(value=120),
+            'emergency_file_path': tk.StringVar(value="")
         }
         
         self.multiplex_channels[channel_num] = channel_data
@@ -4858,7 +4993,7 @@ class DVBT2EncoderGUI:
         # Source type - компактный комбобокс
         ttk.Label(top_frame, text="Source:", font=('Arial', 8), width=6).pack(side='left')
         source_combo = ttk.Combobox(top_frame, textvariable=channel_data['source_type'],
-                                   values=["input_devices", "media_folder", "UDP_MPTS", "URL_Input"], 
+                                   values=["input_devices", "media_folder", "UDP_MPTS", "URL_Input", "grab_window"], 
                                    width=12, font=('Arial', 8), state="readonly")
         source_combo.pack(side='left', padx=(0, 5))
         source_combo.bind('<<ComboboxSelected>>', 
@@ -4937,8 +5072,8 @@ class DVBT2EncoderGUI:
                                       width=32, font=('Arial', 8), state="readonly")
             video_combo.pack(side='left', padx=(2, 10))
             channel_data['video_devices_combo'] = video_combo
-            video_combo.bind('<<ComboboxSelected>>', 
-                 lambda e, ch=channel_num: self.on_udp_stream_select(ch, 'video'))
+            # video_combo.bind('<<ComboboxSelected>>', 
+                 # lambda e, ch=channel_num: self.on_input_device_selected(ch, 'video'))
             
             ttk.Label(row_frame, text="Audio:", font=('Arial', 8), width=6).pack(side='left')
             
@@ -4946,12 +5081,14 @@ class DVBT2EncoderGUI:
                                       width=32, font=('Arial', 8), state="readonly")
             audio_combo.pack(side='left', padx=2)
             channel_data['audio_devices_combo'] = audio_combo
-            audio_combo.bind('<<ComboboxSelected>>', 
-                 lambda e, ch=channel_num: self.on_udp_stream_select(ch, 'audio'))
+            # audio_combo.bind('<<ComboboxSelected>>', 
+                 # lambda e, ch=channel_num: self.on_input_device_selected(ch, 'audio'))
             
             # Автоматически обновляем список устройств
             if not skip_refresh:
-                self.root.after(250, lambda: self.populate_channel_device_lists(channel_num))
+                self.root.after(100, self.find_video_devices)
+                self.root.after(150, self.find_audio_devices)
+                self.root.after(200, lambda: self.populate_channel_device_lists(channel_num))           
             
         elif source_type == "media_folder":
             # Media file/folder selection
@@ -5007,7 +5144,7 @@ class DVBT2EncoderGUI:
             
             ttk.Label(row2, text="Program:", font=('Arial', 8), width=10).pack(side='left')
             program_combo = ttk.Combobox(row2, textvariable=channel_data['selected_program'],
-                                        width=45, font=('Arial', 8), state="readonly")
+                                        width=35, font=('Arial', 8), state="readonly")
             program_combo.pack(side='left', padx=(2, 0), fill='x', expand=True)
             
             # Привязка события выбора программы
@@ -5051,6 +5188,40 @@ class DVBT2EncoderGUI:
             
             if channel_data['is_radio'].get():
                 self.create_radio_settings(channel_data, content_frame)
+
+        elif source_type == "grab_window":
+            # Window capture configuration
+            channel_data['is_radio'].set(False)
+            row_frame = ttk.Frame(content_frame)
+            row_frame.pack(fill='x', pady=1)
+            
+            ttk.Label(row_frame, text="Window:", font=('Arial', 8), width=6).pack(side='left')
+            
+            # Комбобокс для выбора окна (с возможностью ручного ввода)
+            window_combo = ttk.Combobox(row_frame, textvariable=channel_data['window_title'],
+                                       width=45, font=('Arial', 8))
+            window_combo.pack(side='left', padx=2, fill='x', expand=True)
+            channel_data['window_combo'] = window_combo
+            
+            # Кнопка обновления списка окон
+            ttk.Button(row_frame, text="Refresh", width=8,
+                      command=lambda ch=channel_num: self.refresh_channel_windows(ch)).pack(side='left', padx=2)
+            
+            # Audio device selection
+            audio_frame = ttk.Frame(content_frame)
+            audio_frame.pack(fill='x', pady=1)
+            
+            ttk.Label(audio_frame, text="Audio:", font=('Arial', 8), width=6).pack(side='left')
+            
+            audio_combo = ttk.Combobox(audio_frame, textvariable=channel_data['audio_device'],
+                                      width=45, font=('Arial', 8), state="readonly")
+            audio_combo.pack(side='left', padx=2, fill='x', expand=True)
+            channel_data['audio_devices_combo'] = audio_combo
+            
+            # Обновляем списки
+            self.root.after(100, lambda: self.refresh_channel_windows(channel_num))
+            self.root.after(200, self.find_audio_devices)
+            self.root.after(300, lambda: self.populate_channel_device_lists(channel_num))
 
     def on_radio_bg_type_change_by_data(self, channel_data):
         """Handle radio background type change - пересоздаем настройки"""
@@ -5119,7 +5290,13 @@ class DVBT2EncoderGUI:
                 
                 if channel_num:
                     # Привязка для обновления при изменении пути к картинке
-                    channel_data['radio_bg_picture'].trace_add('write', lambda *args: self.update_radio_gui_settings(channel_num))
+                    def debounced_gui_update(ch_num):
+                        if hasattr(self, '_gui_update_timer'):
+                            self.root.after_cancel(self._gui_update_timer)
+                        self._gui_update_timer = self.root.after(500, lambda: self.update_radio_gui_settings(ch_num))
+
+                    # Привязка:
+                    channel_data['radio_text'].trace_add('write', lambda *args: debounced_gui_update(channel_num))
             
             # Вторая строка - основной текст радио
             row3 = ttk.Frame(parent_frame)
@@ -5432,51 +5609,7 @@ class DVBT2EncoderGUI:
             self.log_message(f"  {program['name']}: Video PID={program['video_pid']}, Audio PID={program['audio_pid']}", "buffer")
         
         return programs
-        
-    def validate_input_streams(self):
-        """Validate all input streams before starting encoder"""
-        all_valid = True
-        
-        if self.multiplex_mode.get():
-            for ch_num, channel_data in self.multiplex_channels.items():
-                if not channel_data['enabled'].get():
-                    continue
-                    
-                source_type = channel_data['source_type'].get()
                 
-                if source_type == "UDP_MPTS":
-                    url = channel_data['udp_url'].get().strip()
-                    if url:
-                        # ⭐ ВАЖНО: вызываем с validate_only=False чтобы получить PID ⭐
-                        if not self.get_udp_stream_info(ch_num, validate_only=False):
-                            all_valid = False
-                        else:
-                            # Дополнительно проверяем, что есть PID для маппинга
-                            selected_program = channel_data['selected_program'].get()
-                            has_pid = False
-                            
-                            if selected_program and selected_program != 'no programs found':
-                                for program in channel_data.get('available_programs', []):
-                                    if program['name'] == selected_program:
-                                        if program.get('video_pid') and program.get('audio_pid'):
-                                            has_pid = True
-                                            # Сохраняем PID для использования в сборке команды
-                                            channel_data['saved_video_pid'] = program.get('video_pid')
-                                            channel_data['saved_audio_pid'] = program.get('audio_pid')
-                                            break
-                            
-                            if not has_pid and selected_program:
-                                self.log_message(f"⚠️ CH{ch_num}: No PID found for program '{selected_program}'", "buffer")
-                                all_valid = False
-                                
-                elif source_type == "URL_Input":
-                    url = channel_data['url_input'].get().strip()
-                    if url:
-                        if not self.check_url_stream(ch_num, url):
-                            all_valid = False
-        
-        return all_valid        
-        
     def update_udp_program_lists(self, channel_num):
         """Update program selection combobox for UDP source"""
         channel_data = self.multiplex_channels[channel_num]
@@ -5502,58 +5635,61 @@ class DVBT2EncoderGUI:
                                     if not channel_data['selected_program'].get() and program_names:
                                         channel_data['selected_program'].set(program_names[0])
                                     break
-
                         
     def populate_channel_device_lists(self, channel_num):
         """Populate device lists for a channel, excluding already used devices"""
         channel_data = self.multiplex_channels[channel_num]
+        source_type = channel_data['source_type'].get()
         
-        # Skip if source type is not input_devices or comboboxes don't exist
-        if channel_data['source_type'].get() != "input_devices":
-            return
-        
-        if not channel_data.get('video_devices_combo') or not channel_data.get('audio_devices_combo'):
+        # Разрешенные типы источников
+        if source_type not in ["input_devices", "grab_window"]:
             return
         
         # Если устройства еще не найдены, ищем их
-        if not self.available_video_devices or not self.available_audio_devices:
-            self.refresh_multiplex_devices()
+        if not self.available_video_devices:
+            self.find_video_devices()
+        if not self.available_audio_devices:
+            self.find_audio_devices()
         
-        # Get all video devices
+        # Получаем все устройства
         all_video_devices = self.available_video_devices.copy()
         all_audio_devices = self.available_audio_devices.copy()
         
-        # Remove devices already used by other channels
+        # Убираем устройства, уже используемые другими каналами
         used_video_devices = set()
         used_audio_devices = set()
         
         for ch_num, ch_data in self.multiplex_channels.items():
             if ch_num == channel_num:
                 continue
-            if ch_data['source_type'].get() == "input_devices" and ch_data['enabled'].get():
+            if ch_data['source_type'].get() in ["input_devices", "grab_window"] and ch_data['enabled'].get():
                 if ch_data['video_device'].get():
                     used_video_devices.add(ch_data['video_device'].get())
                 if ch_data['audio_device'].get():
                     used_audio_devices.add(ch_data['audio_device'].get())
         
-        # Filter available devices
+        # Фильтруем доступные устройства
         available_video = [d for d in all_video_devices if d not in used_video_devices]
         available_audio = [d for d in all_audio_devices if d not in used_audio_devices]
         
-        # Update comboboxes
+        # Обновляем комбобоксы (без лишних условий)
         try:
-            channel_data['video_devices_combo']['values'] = available_video
-            channel_data['audio_devices_combo']['values'] = available_audio
+            # Для input_devices обновляем и видео, и аудио
+            if source_type == "input_devices":
+                if channel_data.get('video_devices_combo'):
+                    channel_data['video_devices_combo']['values'] = available_video
+                    if not channel_data['video_device'].get() and available_video:
+                        channel_data['video_device'].set(available_video[0])
             
-            # Set default if not set
-            if not channel_data['video_device'].get() and available_video:
-                channel_data['video_device'].set(available_video[0])
-            if not channel_data['audio_device'].get() and available_audio:
-                channel_data['audio_device'].set(available_audio[0])
-                
+            # Для всех типов обновляем аудио (если есть комбобокс)
+            if channel_data.get('audio_devices_combo'):
+                channel_data['audio_devices_combo']['values'] = available_audio
+                if not channel_data['audio_device'].get() and available_audio:
+                    channel_data['audio_device'].set(available_audio[0])
+                        
         except Exception as e:
             self.log_message(f"Error updating device lists for CH{channel_num}: {e}", "buffer")
-
+                     
     def refresh_multiplex_devices(self):
         """Refresh device lists for all channels"""
         # Находим устройства (автоматически при первом создании канала)
@@ -5581,7 +5717,6 @@ class DVBT2EncoderGUI:
         self.create_channel_content(channel_num)
         
         if source_type == "URL_Input":
-
             # Для URL Input очищаем другие настройки
             channel_data['video_device'].set('')
             channel_data['audio_device'].set('')
@@ -5589,6 +5724,7 @@ class DVBT2EncoderGUI:
             channel_data['randomize'].set(False)
             channel_data['selected_program'].set('')
             channel_data['available_programs'] = []
+            channel_data['window_title'].set('')  # НОВОЕ
             
         elif source_type == "UDP_MPTS":
             # Для UDP source очищаем выбранные устройства и медиа файлы
@@ -5596,7 +5732,7 @@ class DVBT2EncoderGUI:
             channel_data['audio_device'].set('')
             channel_data['media_path'].set('')
             channel_data['randomize'].set(False)
-            # Радио выключаем
+            channel_data['window_title'].set('')  # НОВОЕ
             channel_data['is_radio'].set(False)
             
         elif source_type == "input_devices":
@@ -5605,8 +5741,25 @@ class DVBT2EncoderGUI:
             channel_data['randomize'].set(False)
             channel_data['selected_program'].set('')
             channel_data['available_programs'] = []
-            # Радио выключаем
+            channel_data['window_title'].set('')  # НОВОЕ
             channel_data['is_radio'].set(False)
+            # ⭐ Добавляем поиск устройств
+            self.root.after(100, self.find_video_devices)
+            self.root.after(150, self.find_audio_devices)
+            self.root.after(200, lambda: self.populate_channel_device_lists(channel_num))           
+            
+        elif source_type == "grab_window":  # НОВОЕ
+            # Для захвата окна очищаем остальное
+            channel_data['video_device'].set('')
+            channel_data['media_path'].set('')
+            channel_data['randomize'].set(False)
+            channel_data['selected_program'].set('')
+            channel_data['available_programs'] = []
+            channel_data['is_radio'].set(False)
+            # Принудительно обновляем список окон
+            self.root.after(100, lambda: self.refresh_channel_windows(channel_num))
+            self.root.after(200, self.find_audio_devices)
+            self.root.after(300, lambda: self.populate_channel_device_lists(channel_num))
             
         else:  # media_folder
             # Для media_folder очищаем выбранные устройства и UDP настройки
@@ -5614,9 +5767,9 @@ class DVBT2EncoderGUI:
             channel_data['audio_device'].set('')
             channel_data['selected_program'].set('')
             channel_data['available_programs'] = []
-            # Радио выключаем
+            channel_data['window_title'].set('')  # НОВОЕ
             channel_data['is_radio'].set(False)
-                
+        
         # Обновляем списки устройств для других каналов
         for ch_num in self.multiplex_channels:
             if (ch_num != channel_num and 
@@ -5624,30 +5777,7 @@ class DVBT2EncoderGUI:
                 self.populate_channel_device_lists(ch_num)
         
         self.save_config()
-
         
-    def browse_radio_picture(self, channel_num):
-        """Browse for radio background picture"""
-        if channel_num in self.multiplex_channels:
-            channel_data = self.multiplex_channels[channel_num]
-            
-            filename = filedialog.askopenfilename(
-                title="Select background picture for radio",
-                filetypes=[
-                    ("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"),
-                    ("All files", "*.*")
-                ]
-            )
-            
-            if filename:
-                channel_data['radio_bg_picture'].set(filename)
-                # После выбора файла пересоздаем контент
-                for ch_num, ch_data in self.multiplex_channels.items():
-                    if ch_data is channel_data:
-                        self.create_channel_content(ch_num)
-                        self.save_config()
-                        break   
-
     def browse_radio_picture_by_data(self, channel_data):
         """Browse for radio background picture using channel_data instead of channel_num"""
         try:
@@ -5677,123 +5807,164 @@ class DVBT2EncoderGUI:
             self.log_message(f"Error browsing for picture: {e}", "buffer")  
             
     def update_radio_gui_settings(self, channel_num):
-        """Update GUI settings (color/size/text) ONLY when changed by user"""
+        """Update GUI settings (color/size/text) via stdin to specific channel process"""
         if not self.is_streaming:
             return
         
-        channel_data = self.multiplex_channels.get(channel_num, {})
+        # Получаем данные канала
+        channel_data = self.multiplex_channels.get(channel_num)
         if not channel_data:
             return
         
-        # Только для радио-каналов
+        # Только для радио-каналов URL_Input
         if not (channel_data['source_type'].get() == "URL_Input" and 
                channel_data['is_radio'].get()):
             return
         
-        ffmpeg_process = getattr(self, 'current_ffmpeg_process', None)
-        if not ffmpeg_process:
+        # Находим процесс канала
+        if channel_num not in self.channel_processes:
+            self.log_message(f"GUI ERROR: CH{channel_num} process not found", "buffer")
             return
         
-        # Получаем индексы фильтров (только для включенных при запуске)
-        filter_indices = self.get_all_filter_indices_for_channel(channel_num)
+        process_info = self.channel_processes[channel_num]
+        if not process_info.get('stdin'):
+            self.log_message(f"GUI ERROR: CH{channel_num} no stdin", "buffer")
+            return
+        
+        stdin = process_info['stdin']
+        
+        # Проверяем, что процесс жив
+        process = process_info.get('process')
+        if process and process.poll() is not None:
+            self.log_message(f"GUI ERROR: CH{channel_num} process dead", "buffer")
+            return
+        
+        # Получаем индексы фильтров из данных канала
+        filter_indices = channel_data.get('filter_indices', {})
         if not filter_indices:
+            self.log_message(f"GUI ERROR: CH{channel_num} no filter indices", "buffer")
             return
         
-        # 1. Основной текст радио
-        if 'text' in filter_indices:
-            text_idx = filter_indices['text']
-            radio_text = channel_data['radio_text'].get()
-            radio_text_safe = radio_text.replace("'", "'\\''").replace(':', '\\:')
-            radio_text_size = channel_data['radio_text_size'].get()
-            radio_text_color = channel_data['radio_text_color'].get()
-            
-            # Проверяем, изменился ли текст
-            last_text_key = f"last_gui_text_ch{channel_num}"
-            last_text = getattr(self, last_text_key, "")
-            if radio_text != last_text:
-                text_cmd = f"CParsed_drawtext_{text_idx} 0.0 reinit text='{radio_text_safe}'\n"
-                self.send_ffmpeg_command(ffmpeg_process, text_cmd)
-                setattr(self, last_text_key, radio_text)
-                self.log_message(f"GUI: Updated CH{channel_num} main text", "buffer")
-            
-            # Проверяем, изменились ли размер/цвет
-            last_size_key = f"last_gui_text_size_ch{channel_num}"
-            last_color_key = f"last_gui_text_color_ch{channel_num}"
-            last_size = getattr(self, last_size_key, None)
-            last_color = getattr(self, last_color_key, "")
-            
-            if last_size != radio_text_size or last_color != radio_text_color:
-                size_color_cmd = f"CParsed_drawtext_{text_idx} 0.0 reinit fontsize={radio_text_size}:fontcolor={radio_text_color}\n"
-                self.send_ffmpeg_command(ffmpeg_process, size_color_cmd)
-                setattr(self, last_size_key, radio_text_size)
-                setattr(self, last_color_key, radio_text_color)
-                self.log_message(f"GUI: Updated CH{channel_num} text size/color", "buffer")
-        
-        # 2. Метаданные (только если были включены при запуске)
-        if ('metadata' in filter_indices and 
-            channel_data.get('metadata_enabled_at_start', False)):
-            metadata_idx = filter_indices['metadata']
-            metadata_color = channel_data['metadata_color'].get()
-            metadata_size = channel_data['metadata_size'].get()
-            metadata_position = channel_data['metadata_position'].get()
-            
-            # Проверяем, изменились ли параметры
-            last_mcolor_key = f"last_gui_mcolor_ch{channel_num}"
-            last_msize_key = f"last_gui_msize_ch{channel_num}"
-            last_mpos_key = f"last_gui_mpos_ch{channel_num}"
-            
-            last_mcolor = getattr(self, last_mcolor_key, "")
-            last_msize = getattr(self, last_msize_key, None)
-            last_mpos = getattr(self, last_mpos_key, None)
-            
-            if (last_mcolor != metadata_color or 
-                last_msize != metadata_size or 
-                last_mpos != metadata_position):
+        try:
+            # 1. Основной текст радио
+            if 'text' in filter_indices:
+                text_idx = filter_indices['text']
+                radio_text = channel_data['radio_text'].get()
+                radio_text_safe = radio_text.replace("'", "'\\''").replace(':', '\\:')
+                radio_text_size = channel_data['radio_text_size'].get()
+                radio_text_color = channel_data['radio_text_color'].get()
                 
-                metadata_params_cmd = f"CParsed_drawtext_{metadata_idx} 0.0 reinit fontsize={metadata_size}:fontcolor={metadata_color}:y=h/2+{metadata_position}\n"
-                self.send_ffmpeg_command(ffmpeg_process, metadata_params_cmd)
+                # Проверяем, изменился ли текст
+                last_text_key = f"last_gui_text_ch{channel_num}"
+                last_text = getattr(self, last_text_key, "")
+                if radio_text != last_text:
+                    text_cmd = f"CParsed_drawtext_{text_idx} 0.0 reinit text='{radio_text_safe}'\n"
+                    stdin.write(text_cmd)
+                    stdin.flush()
+                    setattr(self, last_text_key, radio_text)
+                    self.log_message(f"GUI: CH{channel_num} main text updated", "buffer")
                 
-                setattr(self, last_mcolor_key, metadata_color)
-                setattr(self, last_msize_key, metadata_size)
-                setattr(self, last_mpos_key, metadata_position)
-                self.log_message(f"GUI: Updated CH{channel_num} metadata params", "buffer")
-        
-        # 3. Время (только если было включено при запуске)
-        if ('time' in filter_indices and 
-            channel_data.get('time_enabled_at_start', False)):
-            time_idx = filter_indices['time']
-            time_color = channel_data['radio_time_color'].get()
-            time_size = channel_data['radio_time_size'].get()
-            
-            # Проверяем, изменились ли параметры
-            last_tcolor_key = f"last_gui_tcolor_ch{channel_num}"
-            last_tsize_key = f"last_gui_tsize_ch{channel_num}"
-            
-            last_tcolor = getattr(self, last_tcolor_key, "")
-            last_tsize = getattr(self, last_tsize_key, None)
-            
-            if last_tcolor != time_color or last_tsize != time_size:
-                time_params_cmd = f"CParsed_drawtext_{time_idx} 0.0 reinit fontsize={time_size}:fontcolor={time_color}\n"
-                self.send_ffmpeg_command(ffmpeg_process, time_params_cmd)
+                # Проверяем, изменились ли размер/цвет
+                last_size_key = f"last_gui_text_size_ch{channel_num}"
+                last_color_key = f"last_gui_text_color_ch{channel_num}"
+                last_size = getattr(self, last_size_key, None)
+                last_color = getattr(self, last_color_key, "")
                 
-                setattr(self, last_tcolor_key, time_color)
-                setattr(self, last_tsize_key, time_size)
-                self.log_message(f"GUI: Updated CH{channel_num} time params", "buffer")           
-  
-    def send_ffmpeg_command(self, ffmpeg_process, command):
-        """Helper function to send command to FFmpeg stdin"""
-        if ffmpeg_process and hasattr(ffmpeg_process, 'stdin'):
-            try:
-                ffmpeg_process.stdin.write(command)
-                ffmpeg_process.stdin.flush()
-            except BrokenPipeError:
-                self.log_message("FFmpeg process pipe closed", "buffer")
-            except Exception as e:
-                if "I/O operation on closed file" in str(e):
-                    self.log_message("FFmpeg stdin closed", "buffer")
-                else:
-                    self.log_message(f"Error sending command to FFmpeg: {str(e)[:80]}", "buffer")
+                if last_size != radio_text_size or last_color != radio_text_color:
+                    size_color_cmd = f"CParsed_drawtext_{text_idx} 0.0 reinit fontsize={radio_text_size}:fontcolor={radio_text_color}\n"
+                    stdin.write(size_color_cmd)
+                    stdin.flush()
+                    setattr(self, last_size_key, radio_text_size)
+                    setattr(self, last_color_key, radio_text_color)
+                    self.log_message(f"GUI: CH{channel_num} text size/color updated", "buffer")
+            
+            # 2. Метаданные (только если были включены при запуске)
+            metadata_enabled = channel_data.get('metadata_enabled_at_start', False)
+            if 'metadata' in filter_indices and metadata_enabled:
+                metadata_idx = filter_indices['metadata']
+                metadata_color = channel_data['metadata_color'].get()
+                metadata_size = channel_data['metadata_size'].get()
+                metadata_position = channel_data['metadata_position'].get()
+                
+                # Проверяем, изменились ли параметры
+                last_mcolor_key = f"last_gui_mcolor_ch{channel_num}"
+                last_msize_key = f"last_gui_msize_ch{channel_num}"
+                last_mpos_key = f"last_gui_mpos_ch{channel_num}"
+                
+                last_mcolor = getattr(self, last_mcolor_key, "")
+                last_msize = getattr(self, last_msize_key, None)
+                last_mpos = getattr(self, last_mpos_key, None)
+                
+                if (last_mcolor != metadata_color or 
+                    last_msize != metadata_size or 
+                    last_mpos != metadata_position):
                     
+                    metadata_params_cmd = f"CParsed_drawtext_{metadata_idx} 0.0 reinit fontsize={metadata_size}:fontcolor={metadata_color}:y=h/2+{metadata_position}\n"
+                    stdin.write(metadata_params_cmd)
+                    stdin.flush()
+                    
+                    setattr(self, last_mcolor_key, metadata_color)
+                    setattr(self, last_msize_key, metadata_size)
+                    setattr(self, last_mpos_key, metadata_position)
+                    self.log_message(f"GUI: CH{channel_num} metadata params updated", "buffer")
+            
+            # 3. Время (только если было включено при запуске)
+            time_enabled = channel_data.get('time_enabled_at_start', False)
+            if 'time' in filter_indices and time_enabled:
+                time_idx = filter_indices['time']
+                time_color = channel_data['radio_time_color'].get()
+                time_size = channel_data['radio_time_size'].get()
+                
+                # Проверяем, изменились ли параметры
+                last_tcolor_key = f"last_gui_tcolor_ch{channel_num}"
+                last_tsize_key = f"last_gui_tsize_ch{channel_num}"
+                
+                last_tcolor = getattr(self, last_tcolor_key, "")
+                last_tsize = getattr(self, last_tsize_key, None)
+                
+                if last_tcolor != time_color or last_tsize != time_size:
+                    time_params_cmd = f"CParsed_drawtext_{time_idx} 0.0 reinit fontsize={time_size}:fontcolor={time_color}\n"
+                    stdin.write(time_params_cmd)
+                    stdin.flush()
+                    
+                    setattr(self, last_tcolor_key, time_color)
+                    setattr(self, last_tsize_key, time_size)
+                    self.log_message(f"GUI: CH{channel_num} time params updated", "buffer")
+                    
+            # 4. Фон (цвет или картинка)
+            bg_type = channel_data['radio_bg_type'].get()
+            if bg_type == "Color":
+                bg_color = channel_data['radio_bg_color'].get()
+                last_bg_key = f"last_gui_bgcolor_ch{channel_num}"
+                last_bg = getattr(self, last_bg_key, "")
+                
+                if last_bg != bg_color:
+                    # Для изменения фона цвета нужно перезапустить входной источник
+                    # Это сложнее, можно просто залогировать
+                    self.log_message(f"GUI: CH{channel_num} background color changed to {bg_color} (requires stream restart)", "buffer")
+                    setattr(self, last_bg_key, bg_color)
+            else:
+                # Для картинки - просто логируем
+                bg_picture = channel_data['radio_bg_picture'].get()
+                last_pic_key = f"last_gui_bgpicture_ch{channel_num}"
+                last_pic = getattr(self, last_pic_key, "")
+                
+                if last_pic != bg_picture:
+                    self.log_message(f"GUI: CH{channel_num} background picture changed (requires stream restart)", "buffer")
+                    setattr(self, last_pic_key, bg_picture)
+                    
+            # Сохраняем конфиг при изменениях
+            self.save_config()
+            
+        except BrokenPipeError:
+            self.log_message(f"GUI ERROR: CH{channel_num} pipe broken", "buffer")
+        except Exception as e:
+            error_msg = str(e)
+            if "I/O operation on closed file" in error_msg:
+                self.log_message(f"GUI ERROR: CH{channel_num} stdin closed", "buffer")
+            else:
+                self.log_message(f"GUI ERROR: CH{channel_num} {error_msg[:80]}", "buffer")          
+                      
     def get_active_channels(self):
         """Get list of active (enabled) channels"""
         active_channels = []
@@ -5889,7 +6060,7 @@ class DVBT2EncoderGUI:
                 errors='ignore'
             )
             
-            stdout, stderr = process.communicate(timeout=3)
+            stdout, stderr = process.communicate(timeout=7)
             
             station_name = "Radio Station"
             track_name = ""
@@ -5912,97 +6083,7 @@ class DVBT2EncoderGUI:
             
         except:
             return "Radio Station", ""
-        
-    def update_radio_metadata(self):
-        """Update ONLY metadata text for all radio channels (no GUI params)"""
-        if not self.is_streaming:
-            return
-        
-        try:
-            ffmpeg_process = getattr(self, 'current_ffmpeg_process', None)
             
-            if not ffmpeg_process:
-                self.root.after(10000, self.update_radio_metadata)
-                return
-            
-            for ch_num, channel_data in self.multiplex_channels.items():
-                if not (channel_data['enabled'].get() and 
-                       channel_data['source_type'].get() == "URL_Input" and
-                       channel_data['is_radio'].get() and
-                       channel_data['show_metadata'].get() and
-                       channel_data.get('metadata_enabled_at_start', False)):  # Только если было включено при запуске
-                    continue
-                
-                url = channel_data['url_input'].get().strip()
-                if url:
-                    threading.Thread(
-                        target=self.update_single_metadata_text_only,
-                        args=(int(ch_num), url, ffmpeg_process),
-                        daemon=True
-                    ).start()
-            
-            # Планируем следующее обновление через 10 секунд
-            self.root.after(10000, self.update_radio_metadata)
-            
-        except Exception as e:
-            self.log_message(f"Error in update_radio_metadata: {str(e)[:80]}", "buffer")
-            self.root.after(10000, self.update_radio_metadata)
-        
-    def update_single_metadata_text_only(self, channel_num, url, ffmpeg_process):
-        """Update ONLY metadata text (no GUI params)"""
-        try:
-            # 1. Получаем метаданные
-            station_name, track_name = self.parse_metadata_from_url(url)
-            
-            # 2. Формируем текст
-            if not station_name:
-                station_name = "Radio Station"
-            if not track_name:
-                track_name = "No track info"
-            
-            display_text = f"{station_name} | {track_name}"
-            
-            # 3. Проверяем, изменились ли данные
-            last_text_key = f"last_metadata_ch{channel_num}"
-            last_text = getattr(self, last_text_key, "")
-            
-            if display_text == last_text:
-                return  # Данные не изменились
-            
-            # 4. Экранируем текст
-            safe_text = display_text.replace("'", "'\\''").replace(':', '\\:')
-            
-            # 5. Получаем индекс фильтра метаданных
-            filter_indices = self.get_all_filter_indices_for_channel(channel_num)
-            if not filter_indices or 'metadata' not in filter_indices:
-                return
-            
-            metadata_idx = filter_indices['metadata']
-            
-            # 6. Отправляем ТОЛЬКО текст метаданных
-            command = f"CParsed_drawtext_{metadata_idx} 0.0 reinit text='{safe_text}'\n"
-            
-            if ffmpeg_process and hasattr(ffmpeg_process, 'stdin'):
-                try:
-                    ffmpeg_process.stdin.write(command)
-                    ffmpeg_process.stdin.flush()
-                    
-                    # Сохраняем отправленный текст
-                    setattr(self, last_text_key, display_text)
-                    
-                    self.log_message(f"Updated metadata text CH{channel_num}: {display_text[:60]}...", "buffer")
-                    
-                except BrokenPipeError:
-                    self.log_message(f"FFmpeg pipe closed for CH{channel_num}", "buffer")
-                except Exception as e:
-                    if "I/O operation on closed file" in str(e):
-                        self.log_message(f"FFmpeg stdin closed for CH{channel_num}", "buffer")
-                    else:
-                        self.log_message(f"Error sending metadata to CH{channel_num}: {str(e)[:80]}", "buffer")
-            
-        except Exception as e:
-            self.log_message(f"Metadata text update error CH{channel_num}: {str(e)[:100]}", "buffer")        
-        
     def on_udp_stream_select(self, channel_num, stream_type):
         """Handle UDP stream selection - update channel name"""
         channel_data = self.multiplex_channels[channel_num]
@@ -6032,10 +6113,15 @@ class DVBT2EncoderGUI:
             return
         
         self.save_config()
+        
+        # Обновляем UI статистики при изменении активных каналов
+        if self.multiplex_mode.get() and hasattr(self, 'channels_stats_container'):
+            self.root.after(100, self.init_channels_stats_ui)
+        
         # Refresh device lists only for input device channels
         for ch_num in self.multiplex_channels:
             if ch_num in self.multiplex_channels and self.multiplex_channels[ch_num]['source_type'].get() == "input_devices":
-                self.populate_channel_device_lists(ch_num) 
+                self.populate_channel_device_lists(ch_num)
 
     def add_channel(self):
         """Add a new channel"""
@@ -6057,34 +6143,14 @@ class DVBT2EncoderGUI:
         if new_channel_num > self.max_channels:
             messagebox.showwarning("Limit Reached", f"Maximum {self.max_channels} channels allowed")
             return
-        
+
         self.add_channel_widget(new_channel_num)
         self.update_add_button_state()
         self.save_config()
-
-    # def remove_channel(self, channel_num):
-        # """Remove a channel"""
-        # if channel_num == 1:
-            # messagebox.showwarning("Cannot Remove", "CH1 cannot be removed")
-            # return
         
-        # channel_data = self.multiplex_channels[channel_num]
-        # channel_data['frame'].destroy()
-        # del self.multiplex_channels[channel_num]
-        
-        # # Renumber remaining channels
-        # self.renumber_channels()
-        # self.update_add_button_state()
-        # self.save_config()
-
-    # def renumber_channels(self):
-        # """Renumber channels after removal"""
-        # channels = list(self.multiplex_channels.items())
-        # self.multiplex_channels.clear()
-        
-        # for i, (old_num, data) in enumerate(sorted(channels, key=lambda x: x[0]), 1):
-            # data['frame'].config(text=f"CH{i}")
-            # self.multiplex_channels[i] = data
+        # Обновляем UI статистики
+        if self.multiplex_mode.get() and hasattr(self, 'channels_stats_container'):
+            self.root.after(100, self.init_channels_stats_ui)
 
     def update_add_button_state(self):
         """Enable/disable add button based on channel count"""
@@ -6209,6 +6275,7 @@ class DVBT2EncoderGUI:
                         channel_data['source_type'].set(str(ch_config.get('source_type', 'input_devices')))
                         channel_data['video_device'].set(str(ch_config.get('video_device', '')))
                         channel_data['audio_device'].set(str(ch_config.get('audio_device', '')))
+                        channel_data['window_title'].set(str(ch_config.get('window_title', '')))
                         channel_data['media_path'].set(str(ch_config.get('media_path', '')))
                         channel_data['randomize'].set(bool(ch_config.get('randomize', False)))
                         channel_data['udp_url'].set(str(ch_config.get('udp_url', '')))
@@ -6233,7 +6300,8 @@ class DVBT2EncoderGUI:
                             channel_data['saved_video_pid'] = str(ch_config['video_pid'])
                         if 'audio_pid' in ch_config:
                             channel_data['saved_audio_pid'] = str(ch_config['audio_pid'])
-                        
+                        if 'audio_device' in ch_config:
+                            channel_data['audio_device'].set(ch_config['audio_device'])                        
                         # Обновляем контент
                         self.create_channel_content(ch_num, skip_refresh=True)
                         
@@ -6389,20 +6457,47 @@ class DVBT2EncoderGUI:
         self.modulator_stop_btn.pack(side='left', padx=2)
         
         # Encoder Statistics
+        # Encoder Statistics
         enc_frame = ttk.LabelFrame(parent, text="Encoder Statistics", padding="6")
         enc_frame.pack(fill='x', pady=(0, 6))
         
-        # Speed with dynamic color
-        ttk.Label(enc_frame, text="Speed:", font=('Arial', 10)).grid(row=0, column=0, sticky='w', pady=2)
-        self.speed_label = ttk.Label(enc_frame, textvariable=self.encoder_speed, 
-                                   font=('Arial', 11, 'bold'))
-        self.speed_label.grid(row=0, column=1, sticky='w', padx=5, pady=2)
-        ttk.Label(enc_frame, text="x", font=('Arial', 10)).grid(row=0, column=2, sticky='w', pady=2)
+        # Основной контейнер
+        stats_container = ttk.Frame(enc_frame)
+        stats_container.pack(fill='x')
         
-        ttk.Label(enc_frame, text="Bitrate:", font=('Arial', 10)).grid(row=0, column=3, sticky='w', pady=2, padx=(10,0))
-        ttk.Label(enc_frame, textvariable=self.encoder_bitrate, 
-                 foreground='blue', font=('Arial', 11, 'bold')).grid(row=0, column=4, sticky='w', padx=5, pady=2)
-        ttk.Label(enc_frame, text="kbps", font=('Arial', 10)).grid(row=0, column=5, sticky='w', pady=2)
+        # ===== ЛЕВАЯ КОЛОНКА: ОСНОВНОЙ ЭНКОДЕР =====
+        main_frame = ttk.Frame(stats_container)
+        main_frame.pack(side='left', padx=(0, 15))
+        
+        # Заголовок MAIN заменили на Multiplex
+        ttk.Label(main_frame, text="Multiplex", font=('Arial', 8, 'bold')).pack(anchor='w')
+        
+        # Speed (S:) - компактно, но сохраняем подпись Speed
+        speed_frame = ttk.Frame(main_frame)
+        speed_frame.pack(anchor='w', pady=(2, 0))
+        ttk.Label(speed_frame, text="Speed:", font=('Arial', 8, 'bold')).pack(side='left')
+        self.speed_label = ttk.Label(speed_frame, textvariable=self.encoder_speed, 
+                                   font=('Arial', 11, 'bold'))
+        self.speed_label.pack(side='left', padx=(2, 0))
+        
+        # Bitrate (B:) - сохраняем подпись Bitrate
+        bitrate_frame = ttk.Frame(main_frame)
+        bitrate_frame.pack(anchor='w', pady=(2, 0))
+        ttk.Label(bitrate_frame, text="Bitrate:", font=('Arial', 8, 'bold')).pack(side='left')
+        self.bitrate_label = ttk.Label(bitrate_frame, textvariable=self.encoder_bitrate, 
+                                     foreground='blue', font=('Arial', 11, 'bold'))
+        self.bitrate_label.pack(side='left', padx=(2, 0))
+        ttk.Label(bitrate_frame, text="k", font=('Arial', 8)).pack(side='left')
+        
+        # ===== ПРАВАЯ КОЛОНКА: КАНАЛЫ =====
+        self.channels_frame = ttk.Frame(stats_container)
+        
+        if self.multiplex_mode.get():
+            self.channels_frame.pack(side='left', fill='x', expand=True)
+            self.channels_stats_container = ttk.Frame(self.channels_frame)
+            self.channels_stats_container.pack(fill='x')
+            # Создаем UI один раз
+            # self.init_channels_stats_ui()
         
         # Buffer Statistics
         buf_frame = ttk.LabelFrame(parent, text="UDP Buffer Statistics", padding="6")
@@ -7008,40 +7103,13 @@ class DVBT2EncoderGUI:
         self.overlay_log_text.delete(1.0, tk.END)
         
     def auto_find_obs(self):
-        """Try to automatically find OBS Studio installation - minimal version"""
-        # Сначала проверяем конфиг файл
-        config_file = os.path.join(os.path.dirname(__file__), "conf.cfg")
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("OBS_STUDIO_PATH="):
-                            obs_path = line.split("=", 1)[1].strip()
-                            if obs_path and os.path.exists(obs_path):
-                                self.obs_path.set(obs_path)
-                                self.save_config()
-                                self.log_message(f"✅ Found OBS Studio in config: {obs_path}", "buffer")
-                                return True
-            except:
-                pass
+        """Check OBS Studio path from conf.cfg"""
+        # Просто возвращаем то, что уже загружено из конфига
+        if hasattr(self, 'obs_path') and self.obs_path.get():
+            if os.path.exists(self.obs_path.get()):
+                return self.obs_path.get()
         
-        # Проверяем только самые распространенные пути
-        common_paths = [
-            os.path.expandvars("%PROGRAMFILES%\\obs-studio\\bin\\64bit\\obs64.exe"),
-            os.path.expandvars("%PROGRAMFILES(X86)%\\obs-studio\\bin\\32bit\\obs32.exe"),
-        ]
-        
-        for path in common_paths:
-            if os.path.exists(path):
-                self.obs_path.set(path)
-                self.save_config()
-                self.log_message(f"✅ Auto-found OBS Studio at: {path}", "buffer")
-                return True
-        
-        self.log_message("❌ OBS Studio not found", "buffer")
-        self.log_message("💡 Run setup.bat to configure or browse manually", "buffer")
-        return False
+        return ""
         
     def check_obs_status(self):
         """Check if OBS Studio is running and update status"""
@@ -7409,7 +7477,6 @@ class DVBT2EncoderGUI:
         except (ValueError, ZeroDivisionError):
             pass
     
-
     def stop_all_processes(self):
         """Stop all running processes"""
         self.stop_streaming()
@@ -7444,37 +7511,33 @@ class DVBT2EncoderGUI:
         preset = self.modulator_preset.get()
         if preset not in self.modulator_presets:
             self.log_message(f"Error: Unknown modulator preset {preset}", "buffer")
-            self.log_message(f"Available presets: {list(self.modulator_presets.keys())}", "buffer")  # ДЛЯ ДЕБАГА
-            self.log_message(f"🔧 DEBUG: Starting modulator with:", "buffer")
-            self.log_message(f"🔧 DEBUG - Frequency: {self.frequency.get()} Hz", "buffer") 
-            self.log_message(f"🔧 DEBUG - RF Gain: GUI={self.rf_gain_percent.get()}%, Pluto={self.rf_gain.get()} dB", "buffer")
-            self.log_message(f"🔧 DEBUG - Expected conversion: {self.rf_gain_percent.get()}% -> {self.convert_rf_gain_to_modulator(self.rf_gain_percent.get())} dB", "buffer")
-            
             return
         
         script_file = self.modulator_presets[preset]["script"]
         
-        # ДОБАВЬТЕ ПРОВЕРКУ ПУТИ
+        # ПРОВЕРКА ПУТИ К СКРИПТУ
         if not os.path.exists(script_file):
             self.log_message(f"Error: Modulator script not found: {script_file}", "buffer")
-            self.log_message(f"Current directory: {os.getcwd()}", "buffer")  # ДЛЯ ДЕБАГА
             return
-    
-        # Определяем Python для запуска
+
+        # ⭐ ИЗМЕНЕНО: Получаем Python путь ТОЛЬКО из conf.cfg
         python_path = self.gnuradio_python_path.get()
-        if not python_path or not os.path.exists(python_path):
-            # Пытаемся найти автоматически
-            found_path = self.find_gnuradio_python()
-            if found_path:
-                python_path = found_path
-                self.gnuradio_python_path.set(found_path)
-                self.save_config()
-            else:
-                self.log_message("❌ Python для GNU Radio не найден!", "buffer")
-                messagebox.showerror("Ошибка", 
-                                   "Не найден Python для запуска скриптов GNU Radio!\n\n"
-                                   "Убедитесь, что установлен RadioConda или укажите путь вручную.")
-                return
+        
+        # Проверяем, что путь существует
+        if not python_path:
+            self.log_message("❌ RADIOCONDA_PATH not found in conf.cfg!", "buffer")
+            messagebox.showerror("Ошибка", 
+                               "Путь к Python GNU Radio не найден в conf.cfg!\n\n"
+                               "Убедитесь, что файл conf.cfg существует и содержит строку:\n"
+                               "RADIOCONDA_PATH=путь_к_python.exe")
+            return
+        
+        if not os.path.exists(python_path):
+            self.log_message(f"❌ Python not found at: {python_path}", "buffer")
+            messagebox.showerror("Ошибка", 
+                               f"Python не найден по пути:\n{python_path}\n\n"
+                               "Проверьте правильность пути в файле conf.cfg")
+            return
         
         try:
             # Запускаем скрипт через Python GNU Radio
@@ -7511,7 +7574,7 @@ class DVBT2EncoderGUI:
             self.log_message(f"RF modulator {preset} started successfully", "buffer")
             
             # Запускаем подключение к XML-RPC через 3 секунды после запуска модулятора
-            self.root.after(4000, self.connect_to_gnuradio)
+            self.root.after(5000, self.connect_to_gnuradio)
             
         except Exception as e:
             self.log_message(f"Error starting modulator: {e}", "buffer")
@@ -7536,25 +7599,7 @@ class DVBT2EncoderGUI:
                 self.log_message(f"XML-RPC: {result}", "buffer")
             except:
                 self.log_message("XML-RPC недоступен, используем альтернативные методы", "buffer")
-            
-            # # Посылаем SIGINT для корректного завершения Qt
-            # if self.modulator_process.poll() is None:
-                # self.modulator_process.send_signal(signal.SIGINT)
-                
-            # # Ждем до 3 секунд
-            # for _ in range(30):
-                # if self.modulator_process.poll() is not None:
-                    # break
-                # time.sleep(0.1)
-            
-            # # Принудительно если нужно
-            # if self.modulator_process.poll() is None:
-                # self.modulator_process.terminate()
-                # time.sleep(0.5)
-                
-            # if self.modulator_process.poll() is None:
-                # self.modulator_process.kill()
-                
+                            
             # Очистка
             self.modulator_running = False
             self.modulator_process = None
@@ -7813,6 +7858,63 @@ class DVBT2EncoderGUI:
             self.buffer_log_text.insert(tk.END, log_msg)
             self.buffer_log_text.see(tk.END)
 
+    def load_system_paths_from_config(self):
+        """Загружает пути к системным программам из conf.cfg (созданного setup.bat)"""
+        try:
+            if os.path.exists(self.system_config_file):
+                with open(self.system_config_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        
+                        # Разбираем строку вида "KEY=value"
+                        if '=' in line:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # Сохраняем в соответствующие переменные
+                            if key == 'RADIOCONDA_PATH':
+                                self.gnuradio_python_path.set(value)
+                                print(f"📂 Loaded GNU Radio path: {value}")
+                            
+                            elif key == 'FFMPEG_PATH':
+                                self.ffmpeg_path_from_config = value
+                                print(f"📂 Loaded FFmpeg path: {value}")
+                            
+                            elif key == 'OBS_STUDIO_PATH':
+                                self.obs_path.set(value)
+                                print(f"📂 Loaded OBS path: {value}")
+                            
+                            elif key == 'DVB_RATE_PATH':
+                                self.dvbt2rate_path = value
+                                print(f"📂 Loaded dvbt2rate path: {value}")
+                            
+                            elif key == 'CONDA_BASE':
+                                self.conda_base_path = value
+                                print(f"📂 Loaded Conda base: {value}")
+                
+                self.log_message(f"✅ System paths loaded from {self.system_config_file}", "buffer")
+                
+                # Проверяем, загрузился ли путь
+                if not self.gnuradio_python_path.get():
+                    self.log_message("⚠️ RADIOCONDA_PATH not found in conf.cfg", "buffer")
+                    
+            else:
+                self.log_message(f"⚠️ System config file not found: {self.system_config_file}", "buffer")
+                self.log_message(f"⚠️ Please run setup.bat first", "buffer")
+                
+                # Значения по умолчанию
+                self.gnuradio_python_path.set("")
+                self.obs_path.set("")
+                self.ffmpeg_path_from_config = "ffmpeg.exe"
+                self.dvbt2rate_path = "dvbt2rate.exe"
+                
+        except Exception as e:
+            print(f"❌ Error loading system config: {e}")
+            self.log_message(f"❌ Failed to load system paths", "buffer")
+
     def load_config(self):
         """Load configuration from file"""
         try:
@@ -7822,15 +7924,10 @@ class DVBT2EncoderGUI:
                 
                 print(f"📂 Loading config with {len(config)} parameters")
                 
-                
-                # Load GNU Radio Python path
+                # ⭐ ЗАГРУЖАЕМ GNU Radio Python path
                 if 'gnuradio_python_path' in config:
                     self.gnuradio_python_path.set(config['gnuradio_python_path'])
-                else:
-                    # Auto-find if not in config
-                    found_path = self.find_gnuradio_python()
-                    if found_path:
-                        self.gnuradio_python_path.set(found_path)
+                    print(f"📂 Loaded gnuradio_python_path: {config['gnuradio_python_path']}")
                 
                 # Load playlist settings MPCPLAYLIST
                 if 'playlist_auto_start' in config:
@@ -7892,72 +7989,33 @@ class DVBT2EncoderGUI:
                 if 'obs_auto_start' in config:
                     self.obs_auto_start.set(config['obs_auto_start'])
                 
-                # Load video settings - С ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+                # Video settings
                 if 'video_codec' in config:
                     self.video_codec.set(config['video_codec'])
-                else:
-                    self.video_codec.set("libx265")
-                    
                 if 'video_preset' in config:
                     self.video_preset.set(config['video_preset'])
-                else:
-                    self.video_preset.set("ultrafast")
-                    
                 if 'video_tune' in config:
                     self.video_tune.set(config['video_tune'])
-                else:
-                    self.video_tune.set("animation")
-                    
                 if 'video_bitrate' in config:
                     self.video_bitrate.set(config['video_bitrate'])
-                else:
-                    self.video_bitrate.set("890")
-                    
                 if 'video_bufsize' in config:
                     self.video_bufsize.set(config['video_bufsize'])
-                else:
-                    self.video_bufsize.set("445")
-                    
                 if 'video_resolution' in config:
                     self.video_resolution.set(config['video_resolution'])
-                else:
-                    self.video_resolution.set("1920x1080")
-                    
                 if 'video_fps' in config:
                     self.video_fps.set(config['video_fps'])
-                else:
-                    self.video_fps.set("30")
-                    
                 if 'video_gop' in config:
-                    self.video_gop.set(config['video_gop'])
-                else:
-                    self.video_gop.set("90")
-                    
-                if 'custom_options' in config:
-                    self.custom_options.set(config['custom_options'])
-                else:
-                    self.custom_options.set(" ")                   
+                    self.video_gop.set(config['video_gop'])           
                 
-                # Load audio settings - С ЗНАЧЕНИЯМИ ПО УМОЛЧАНИЮ
+                # Audio settings
                 if 'audio_codec' in config:
                     self.audio_codec.set(config['audio_codec'])
-                else:
-                    self.audio_codec.set("aac")
-                    
                 if 'audio_bitrate' in config:
                     self.audio_bitrate.set(config['audio_bitrate'])
-                else:
-                    self.audio_bitrate.set("96k")
-                    
                 if 'audio_sample_rate' in config:
                     self.audio_sample_rate.set(config['audio_sample_rate'])
-                else:
-                    self.audio_sample_rate.set("48000")
-                    
                 if 'audio_channels' in config:
                     self.audio_channels.set(config['audio_channels'])
-                else:
-                    self.audio_channels.set("stereo")
                 
                 # Load input devices
                 if 'video_input_device' in config:
@@ -8094,7 +8152,8 @@ class DVBT2EncoderGUI:
                 if 'multiplex_channels' in config:
                     self.multiplex_config_from_file = config['multiplex_channels']
                     print(f"  ✅ Loaded multiplex config with {len(self.multiplex_config_from_file)} channels")
-                    
+                if 'emergency_file_path' in config:
+                    self.emergency_file_path.set(config.get('emergency_file_path', ''))    
                     # Загрузка каналов будет выполнена после создания GUI
                     # в load_multiplex_channels()
             
@@ -8113,7 +8172,6 @@ class DVBT2EncoderGUI:
             self.multiplex_config_from_file = {}
             import traceback
             traceback.print_exc()
-
             
     def save_config(self):
         """Save configuration to file"""
@@ -8132,19 +8190,18 @@ class DVBT2EncoderGUI:
                 'bumper_files': [file_var.get() for _, file_var in getattr(self.playlist_manager, 'bumper_widgets', [])] if hasattr(self, 'playlist_manager') else [],
                              
                 # OBS settings
-                'obs_path': self.obs_path.get() if hasattr(self, 'obs_path') else "",
-                'obs_auto_start': self.obs_auto_start.get() if hasattr(self, 'obs_auto_start') else False,
+                'obs_path': self.obs_path.get(),
+                'obs_auto_start': self.obs_auto_start.get(),
                 
                 # Video settings
-                'video_codec': self.video_codec.get() if hasattr(self, 'video_codec') else "libx265",
-                'video_preset': self.video_preset.get() if hasattr(self, 'video_preset') else "ultrafast",
-                'video_tune': self.video_tune.get() if hasattr(self, 'video_tune') else "animation",
-                'video_bitrate': self.video_bitrate.get() if hasattr(self, 'video_bitrate') else "890",
-                'video_bufsize': self.video_bufsize.get() if hasattr(self, 'video_bufsize') else "445",
-                'video_resolution': self.video_resolution.get() if hasattr(self, 'video_resolution') else "1920x1080",
-                'video_fps': self.video_fps.get() if hasattr(self, 'video_fps') else "30",
-                'video_gop': self.video_gop.get() if hasattr(self, 'video_gop') else "90",
-                'custom_options': self.custom_options.get() if hasattr(self, 'custom_options') else " ",
+                'video_codec': self.video_codec.get(),
+                'video_preset': self.video_preset.get(),
+                'video_tune': self.video_tune.get(),
+                'video_bitrate': self.video_bitrate.get(),
+                'video_bufsize': self.video_bufsize.get(),
+                'video_resolution': self.video_resolution.get(),
+                'video_fps': self.video_fps.get(),
+                'video_gop': self.video_gop.get(),
                 
                 # Audio settings
                 'audio_codec': self.audio_codec.get(),
@@ -8176,7 +8233,7 @@ class DVBT2EncoderGUI:
                 'service_provider': self.service_provider.get(),
                 
                 # Overlay settings
-                'overlay_auto_start': self.overlay_auto_start.get(),
+                'overlay_auto_start': self.overlay_auto_start.get(), 
                 'overlay_stream_time': self.overlay_stream_time.get(),
                 'overlay_ts_bitrate': self.overlay_ts_bitrate.get(),
                 'overlay_video_bitrate': self.overlay_video_bitrate.get(),
@@ -8193,16 +8250,16 @@ class DVBT2EncoderGUI:
                 'overlay_modulation': self.overlay_modulation.get(),
                 
                 # Autostart settings
-                'auto_start': self.auto_start.get() if hasattr(self, 'auto_start') else True,
-                'save_window_size': self.save_window_size.get() if hasattr(self, 'save_window_size') else False,
-                'streaming_auto_start': self.streaming_auto_start.get() if hasattr(self, 'streaming_auto_start') else True,
+                'auto_start': self.auto_start.get(),
+                'save_window_size': self.save_window_size.get(),
+                'streaming_auto_start': self.streaming_auto_start.get(),
                             
                 # RF modulator settings
-                'modulator_preset': self.modulator_preset.get() if hasattr(self, 'modulator_preset') else "",
-                'modulator_auto_start': self.modulator_auto_start.get() if hasattr(self, 'modulator_auto_start') else True,
-                'pluto_ip': self.pluto_ip.get() if hasattr(self, 'pluto_ip') else "192.168.80.70",
-                'frequency': self.frequency.get() if hasattr(self, 'frequency') else "431000000",
-                'rf_gain_percent': self.rf_gain_percent.get() if hasattr(self, 'rf_gain_percent') else 50,
+                'modulator_preset': self.modulator_preset.get(),
+                'modulator_auto_start': self.modulator_auto_start.get(),
+                'pluto_ip': self.pluto_ip.get(),
+                'frequency': self.frequency.get(),
+                'rf_gain_percent': self.rf_gain_percent.get(),
                 
                 # Device settings
                 'selected_device': self.selected_device.get(),
@@ -8224,6 +8281,7 @@ class DVBT2EncoderGUI:
                     'source_type': channel_data['source_type'].get(),
                     'video_device': channel_data['video_device'].get(),
                     'audio_device': channel_data['audio_device'].get(),
+                    'window_title': channel_data['window_title'].get(),  # НОВОЕ
                     'media_path': channel_data['media_path'].get(),
                     'randomize': channel_data['randomize'].get(),
                     'udp_url': channel_data['udp_url'].get(),
@@ -8248,7 +8306,7 @@ class DVBT2EncoderGUI:
                     
                     'position': ch_num
                 }
-            
+            config['emergency_file_path'] = self.emergency_file_path.get()
             config['multiplex_channels'] = multiplex_config
             config['multiplex_mode'] = self.multiplex_mode.get()         
             # Save window geometry if save is enabled
@@ -8260,7 +8318,7 @@ class DVBT2EncoderGUI:
             with open(self.config_file, 'w') as f:
                 json.dump(config, f, indent=4)
                 
-            print(f"✅ Config saved successfully with {len(config)} parameters")
+            # print#(f"✅ Config saved successfully with {len(config)} parameters")
                                  
         except Exception as e:
             print(f"❌ Error saving config: {e}")
@@ -8296,7 +8354,11 @@ class DVBT2EncoderGUI:
             # Renumber remaining channels
             self.renumber_channels()
             self.update_add_button_state()
-            self.save_config() 
+            self.save_config()
+            
+            # Обновляем UI статистики
+            if self.multiplex_mode.get() and hasattr(self, 'channels_stats_container'):
+                self.root.after(100, self.init_channels_stats_ui)
             
     def update_add_button_state(self):
         """Enable/disable add button based on channel count"""
@@ -8327,6 +8389,7 @@ class DVBT2EncoderGUI:
                 channel_data['source_type'].trace_add('write', lambda *args: self.debounced_save())
                 channel_data['video_device'].trace_add('write', lambda *args: self.debounced_save())
                 channel_data['audio_device'].trace_add('write', lambda *args: self.debounced_save())
+                channel_data['window_title'].set(str(ch_config.get('window_title', '')))
                 channel_data['media_path'].trace_add('write', lambda *args: self.debounced_save())
                 channel_data['randomize'].trace_add('write', lambda *args: self.debounced_save())
                 channel_data['url_input'].trace_add('write', lambda *args: self.debounced_save())
@@ -8739,82 +8802,6 @@ class DVBT2EncoderGUI:
         
         return data
         
-    def get_udp_stream_info(self, channel_num, validate_only=False):
-        """Get program information from UDP source with validation"""
-        channel_data = self.multiplex_channels[channel_num]
-        url = channel_data['udp_url'].get().strip()
-        
-        if not url:
-            if not validate_only:
-                self.log_message(f"❌ No URL specified for CH{channel_num}", "buffer")
-                messagebox.showerror("Error", f"Please enter URL for CH{channel_num}")
-            return False
-        
-        ffmpeg_path = self.find_ffmpeg()
-        
-        try:
-            # ВСЕГДА логируем начало анализа
-            self.log_message(f"🔍 Analyzing UDP source CH{channel_num}: {url[:80]}...", "buffer")
-            
-            # Команда для анализа (2 секунды достаточно)
-            cmd = [ffmpeg_path, '-i', url, '-t', '2', '-f', 'null', '-']
-            
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
-                errors='ignore'
-            )
-            
-            stdout, stderr = process.communicate(timeout=7)
-            
-            # ⭐ ВАЛИДАЦИЯ: проверяем есть ли поток ⭐
-            is_valid = 'Input #0' in stderr and 'Stream #' in stderr
-            
-            if not is_valid:
-                self.log_message(f"❌ CH{channel_num} UDP stream not responding: {url[:50]}...", "buffer")
-                return False
-            
-            # Если только валидация - возвращаем успех
-            if validate_only:
-                self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "buffer")
-                return True
-            
-            # ⭐ ПАРСИНГ ПРОГРАММ (даже если validate_only=False, мы все равно парсим) ⭐
-            programs = self.parse_ffmpeg_output(stderr)
-            
-            # ВАЖНО: сохраняем программы ДАЖЕ если их нет
-            channel_data['available_programs'] = programs
-            
-            # Очищаем сохраненные PID если программы не найдены
-            if not programs:
-                if 'saved_video_pid' in channel_data:
-                    channel_data['saved_video_pid'] = ''
-                if 'saved_audio_pid' in channel_data:
-                    channel_data['saved_audio_pid'] = ''
-            
-            # Обновляем GUI
-            self.root.after(0, lambda ch=channel_num: self.update_udp_program_lists(ch))
-            
-            # Автоматически выбираем первую программу если есть
-            if programs:
-                self.root.after(100, lambda: channel_data['selected_program'].set(programs[0]['name']))
-                self.log_message(f"✅ Found {len(programs)} programs in CH{channel_num}", "buffer")
-            else:
-                self.log_message(f"⚠️ No programs found in CH{channel_num}", "buffer")
-            
-            self.save_config()
-            return True
-                
-        except subprocess.TimeoutExpired:
-            self.log_message(f"❌ CH{channel_num} UDP stream timeout (no response)", "buffer")
-            return False
-        except Exception as e:
-            self.log_message(f"❌ Error analyzing UDP source CH{channel_num}: {str(e)[:100]}", "buffer")
-            return False
-
     def check_udp_stream(self, channel_num, url):
         """Check UDP stream availability"""
         try:
@@ -8832,7 +8819,7 @@ class DVBT2EncoderGUI:
                 errors='ignore'
             )
             
-            stdout, stderr = process.communicate(timeout=10)
+            stdout, stderr = process.communicate(timeout=7)
             
             if 'Input #0' in stderr or 'Stream #' in stderr:
                 self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "buffer")
@@ -8852,7 +8839,7 @@ class DVBT2EncoderGUI:
             
             # Для HTTP/HTTPS добавляем user-agent и timeout
             cmd = [ffmpeg_path, '-user_agent', 'Mozilla/5.0', 
-                   '-timeout', '3000000', '-i', url, '-t', '2', '-f', 'null', '-']
+                   '-timeout', '2000000', '-i', url, '-t', '3', '-f', 'null', '-']
             
             process = subprocess.Popen(
                 cmd,
@@ -8863,9 +8850,9 @@ class DVBT2EncoderGUI:
                 errors='ignore'
             )
             
-            stdout, stderr = process.communicate(timeout=7)
+            stdout, stderr = process.communicate(timeout=10)
             
-            if any(x in stderr for x in ['Input #0', 'Stream #', 'icy-name', 'Duration:']):
+            if any(x in stderr for x in ['Input #0', 'Stream #', 'Program', 'icy-name', 'Duration:']):
                 self.log_message(f"✅ CH{channel_num} URL stream OK: {url[:50]}...", "buffer")
                 return True
             else:
@@ -8874,149 +8861,946 @@ class DVBT2EncoderGUI:
                 
         except Exception as e:
             self.log_message(f"❌ CH{channel_num} URL stream error: {str(e)[:100]}", "buffer")
-            return False        
+            return False  
+
+    def monitor_channel_output(self, channel_num, process, channel_data):
+        """Monitor channel process output for errors with thread-safe emergency start"""
+        critical_errors = [
+            'error opening input', 'failed to reload playlist', 'connection failed',
+            'unable to open', 'Server returned 404', 'Invalid data found', 'Error during demuxing',
+            'keepalive request failed', 'Failed to resolve hostname', 'Unable to open URL', 'http error',
+            'Failed to resolve', 'invalid new backstep -1', 'Connection timed out', 'IO error: Error number -10054 occurred',
+            'Server disconnected', 'Error in the pull function', 'Error number -10054 occurred', 'end of file', 'Input/output error'
+        ]
+        
+        try:
+            for line in iter(process.stdout.readline, ''):
+                if line and self.is_streaming:
+                    line_stripped = line.strip()
+                    
+                    # ⭐ НОВОЕ: Парсим статистику (speed и bitrate)
+                    if "speed=" in line_stripped:
+                        match = re.search(r'speed=\s*([\d.]+)x', line_stripped)
+                        if match:
+                            speed = float(match.group(1))
+                            # Обновляем GUI в главном потоке
+                            self.root.after(0, self.update_channel_stats, channel_num, 'speed', speed)
+                    
+                    if "bitrate=" in line_stripped:
+                        match = re.search(r'bitrate=\s*([\d.]+)\s*kbits/s', line_stripped)
+                        if match:
+                            bitrate = match.group(1)
+                            self.root.after(0, self.update_channel_stats, channel_num, 'bitrate', bitrate)
+                    
+                    # ⭐ Существующий код проверки ошибок (НЕ ТРОГАЕМ!)
+                    error_detected = False
+                    detected_error = "unknown_error"
+                    
+                    for error in critical_errors:
+                        if error.lower() in line_stripped.lower():
+                            error_detected = True
+                            detected_error = line_stripped[:100]
+                            break
+                    
+                    if error_detected:
+                        self.log_message(f"CH{channel_num} ERROR: {detected_error}", "buffer")
+                        
+                        # Переводим канал в состояние FAILED
+                        self.transition_to_failed(channel_num, "stream_error")
+                        
+                        return  # Выходим из монитора
+                            
+        except Exception as e:
+            if self.is_streaming:
+                self.log_message(f"CH{channel_num} monitor error: {e}", "buffer")
+        
+        # Проверяем завершение процесса
+        if process.poll() is not None and self.is_streaming:
+            return_code = process.poll()
+            self.log_message(f"CH{channel_num}: Process exited with code {return_code}", "buffer")
+            
+            # Переводим канал в состояние FAILED
+            self.transition_to_failed(channel_num, f"process_exit_{return_code}")
+                
+    def kill_process_fast(self, process, name=""):
+        """Fast process termination (from IPTV app)"""
+        if not process:
+            return
+        
+        try:
+            pid = process.pid
+            
+            if sys.platform == "win32":
+                os.system(f'taskkill /PID {pid} /T /F')
+            else:
+                process.terminate()
+                
+            for _ in range(30):
+                if process.poll() is not None:
+                    break
+                time.sleep(0.1)
+                    
+            if process.poll() is None:
+                process.kill()
+                
+            process.wait(timeout=1)
+            
+            if name:
+                self.log_message(f"{name} stopped", "buffer")
+                
+        except Exception as e:
+            if name:
+                self.log_message(f"Error stopping {name}: {str(e)}", "buffer")        
+              
+    def restart_original_channel(self, channel_num):
+        """Restart original channel"""
+        channel_data = self.multiplex_channels.get(channel_num, {})
+        if not channel_data.get('enabled', False):
+            return False
+        
+        # ⭐ ДЛЯ GRAB_WINDOW: проверяем и обновляем окно
+        if channel_data['source_type'].get() == "grab_window":
+            # Получаем актуальный список окон
+            windows = self.get_available_windows()
+            current_window = channel_data['window_title'].get()
+            
+            self.log_message(f"CH{channel_num}: Restarting with window: '{current_window[:50]}...'", "buffer")
+            
+            if current_window and current_window in windows:
+                # Окно все еще доступно - отлично
+                self.log_message(f"CH{channel_num}: Window still available", "buffer")
+                pass
+            elif current_window:
+                # Ищем похожее
+                similar = self.find_similar_window(current_window, windows)
+                if similar:
+                    channel_data['window_title'].set(similar)
+                    self.log_message(f"CH{channel_num}: Found similar window for restart: {similar[:50]}...", "buffer")
+                elif windows:
+                    # Берем первое доступное
+                    channel_data['window_title'].set(windows[0])
+                    self.log_message(f"CH{channel_num}: Using first available window for restart: {windows[0][:50]}...", "buffer")
+                else:
+                    self.log_message(f"CH{channel_num}: No windows available for capture", "buffer")
+                    return False
+            elif windows:
+                channel_data['window_title'].set(windows[0])
+                self.log_message(f"CH{channel_num}: No previous window, using first available", "buffer")
+        
+        self.log_message(f"CH{channel_num}: Restarting original stream...", "buffer")        
+        
+        # Запускаем оригинальный канал
+        output_port = self.base_multicast_port + channel_num - 1
+        
+        if channel_data['source_type'].get() == "URL_Input" and channel_data['is_radio'].get():
+            cmd = self.build_radio_channel_command(channel_num, channel_data, output_port)
+            use_stdin = True
+        else:
+            cmd = self.build_channel_ffmpeg_command(channel_num, channel_data, output_port)
+            use_stdin = False
+        
+        if not cmd:
+            return False
+        
+        # ⭐ ЛОГИРУЕМ ПОЛНУЮ КОМАНДУ
+        # self.log_message(f"CH{channel_num} RESTART CMD: {cmd}", "buffer")
+        
+        # Сохраняем в файл для анализа
+        # try:
+            # with open(f"restart_ch{channel_num}.bat", "w", encoding='utf-8') as f:
+                # f.write(f"@echo off\n")
+                # f.write(f"echo Restarting CH{channel_num}\n")
+                # f.write(f"cd /d \"{os.path.dirname(self.find_ffmpeg())}\"\n")
+                # f.write(cmd + "\n")
+                # f.write("pause\n")
+            # self.log_message(f"CH{channel_num}: Command saved to restart_ch{channel_num}.bat", "buffer")
+        # except Exception as e:
+            # self.log_message(f"CH{channel_num}: Failed to save command file: {e}", "buffer")
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # ← ВАЖНО: stderr должен быть PIPE
+                stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
+                text=True,
+                encoding='utf-8',
+                errors='ignore',
+                bufsize=1
+            )
+            
+            threading.Thread(
+                target=self.monitor_channel_output,
+                args=(channel_num, process, channel_data),
+                daemon=True
+            ).start()            
+            # # ⚡ ДОБАВИТЬ СЮДА ⚡
+            # # Сохраняем stderr в файл для анализа
+            # try:
+                # with open(f"ch{channel_num}_stderr.log", "a", encoding='utf-8') as f:
+                    # f.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+                    # f.write(f"CMD: {cmd}\n\n")
+            # except:
+                # pass
+            
+            # # Запускаем поток для логирования stderr
+            # def log_stderr(proc, ch):
+                # for line in iter(proc.stderr.readline, ''):
+                    # if line:
+                        # try:
+                            # with open(f"ch{ch}_stderr.log", "a", encoding='utf-8') as f:
+                                # f.write(line)
+                            # # Также в буфер приложения
+                            # self.log_message(f"CH{ch} stderr: {line.strip()[:200]}", "ffmpeg")
+                        # except:
+                            # pass
+            
+            # threading.Thread(target=log_stderr, args=(process, channel_num), daemon=True).start()
+            
+            # Даем процессу время запуститься
+            time.sleep(1)
+            
+            # Проверяем, что процесс жив
+            if process.poll() is not None:
+                return_code = process.poll()
+                self.log_message(f"CH{channel_num}: ⚠️ Process died immediately, code {return_code}", "buffer")
+                
+                # Получаем вывод для диагностики
+                try:
+                    stdout, _ = process.communicate(timeout=1)
+                    if stdout:
+                        self.log_message(f"CH{channel_num}: Process output: {stdout[:500]}", "buffer")
+                except:
+                    pass
+                
+                return False
+            
+            self.channel_processes[channel_num] = {
+                'process': process,
+                'pid': process.pid,
+                'stdin': process.stdin if use_stdin else None,
+                'port': output_port,
+                'is_radio': use_stdin,
+                'is_emergency': False
+            }
+            
+            self.root.after(5000, self.update_radio_metadata_new)
+            self.log_message(f"CH{channel_num}: ✅ Original stream restarted (PID: {process.pid})", "buffer")
+            return True
+            
+        except Exception as e:
+            self.log_message(f"CH{channel_num}: ❌ Failed to restart: {e}", "buffer")
+            return False
+
+    def stop_channel_process(self, channel_num):
+        """Stop individual channel process"""
+       
+        if channel_num in self.channel_processes:
+            info = self.channel_processes[channel_num]
+            process = info.get('process')
+            
+            if process and process.poll() is None:
+                self.kill_process_fast(process, f"CH{channel_num}")
+            
+            del self.channel_processes[channel_num]
+        
+    def stop_all_channel_processes(self):
+        """Stop all channel and emergency processes"""
+        # Stop channel processes
+        for ch_num in list(self.channel_processes.keys()):
+            self.stop_channel_process(ch_num)
+                
+        # Stop main multiplexer
+        if self.main_multiplexer_process:
+            self.kill_process_fast(self.main_multiplexer_process, "Main Multiplexer")
+            self.main_multiplexer_process = None
+        
+        # Stop emergency stream
+        if self.emergency_process:
+            self.kill_process_fast(self.emergency_process, "Emergency Stream")
+            self.emergency_process = None
+                                                                               
+    def start_state_monitor(self):
+        """Запуск единого монитора состояния"""
+        if hasattr(self, '_state_monitor_running') and self._state_monitor_running:
+            self.log_message("⚠️ State monitor already running, skipping", "buffer")
+            return
+        
+        self.log_message("🚀 Starting state monitor", "buffer")
+        self._state_monitor_running = True
+        self.state_monitor_loop()
+
+    def state_monitor_loop(self):
+        """Единый монитор - вызывается каждую секунду"""
+        # self.log_message(f"📊 STATE_MONITOR_LOOP: is_streaming={self.is_streaming}", "buffer")  # ← ОТЛАДКА
+        
+        if not self.is_streaming:
+            self._state_monitor_running = False
+            return
+            # В начале функции, после проверки is_streaming:
+            self.log_message(f"📊 Current channel_states: {self.channel_states}", "buffer")
+        try:
+            # 1. Проверка живых процессов
+            self.check_active_processes()
+                            
+        except Exception as e:
+            self.log_message(f"State monitor error: {e}", "buffer")
+            import traceback
+            self.log_message(traceback.format_exc(), "buffer")
+        
+        # Следующий вызов через 1 секунду
+        if self.is_streaming:
+            self.root.after(500, self.state_monitor_loop)
+            
+    def check_active_processes(self):
+        """Проверка, что все ACTIVE каналы имеют живой процесс"""
+        for ch_num in list(self.channel_processes.keys()):
+            if self.channel_states.get(ch_num) != self.CHANNEL_STATE_ACTIVE:
+                continue
+                
+            process_info = self.channel_processes.get(ch_num)
+            if not process_info:
+                self.transition_to_failed(ch_num, "no_process_info")
+                continue
+                
+            process = process_info.get('process')
+            if not process or process.poll() is not None:
+                # Процесс умер, но мы не получили ошибку!
+                self.log_message(f"CH{ch_num}: ⚠️ Process died silently", "buffer")
+                self.transition_to_failed(ch_num, "silent_death")            
+            
+    def transition_to_failed(self, channel_num, reason=""):
+        """Перевод канала в состояние FAILED"""
+        self.log_message(f"🔥 TRANSITION_TO_FAILED: CH{channel_num}, reason={reason}", "buffer")
+        self.log_message(f"   BEFORE: channel_states[{channel_num}] = {self.channel_states.get(channel_num)}", "buffer")
+        
+        # ⚡ НОВАЯ ЛОГИКА: если канал был ACTIVE и сразу упал
+        was_active = self.channel_states.get(channel_num) == self.CHANNEL_STATE_ACTIVE
+        
+        # ⚠️ НЕ запускаем emergency, если стриминг уже остановлен
+        if not self.is_streaming and reason != "startup_failed":
+            self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason}) - streaming stopped, no emergency", "buffer")
+            self.stop_channel_process(channel_num)
+            return
+        
+        if self.channel_states.get(channel_num) == self.CHANNEL_STATE_FAILED:
+            return
+        
+        self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason})", "buffer")
+        
+        # 1. Останавливаем процесс канала
+        self.stop_channel_process(channel_num)
+        
+        # Останавливаем обновление метаданных для радио
+        if channel_num in self.channel_processes:
+            old_info = self.channel_processes.get(channel_num)
+            if old_info and old_info.get('is_radio'):
+                self.log_message(f"CH{channel_num}: ⏹️ Stopping metadata updates", "buffer")
+                if hasattr(self, f'last_metadata_ch{channel_num}'):
+                    delattr(self, f'last_metadata_ch{channel_num}')
+        
+        # 2. Обновляем состояние
+        self.channel_states[channel_num] = self.CHANNEL_STATE_FAILED
+        self.log_message(f"   AFTER: channel_states[{channel_num}] = {self.CHANNEL_STATE_FAILED}", "buffer")
+        self.channel_fail_time[channel_num] = time.time()
+        
+        # ⭐ НОВАЯ ЛОГИКА: увеличиваем счетчик ТОЛЬКО если канал был ACTIVE
+        if was_active:
+            # Увеличиваем счетчик, но с верхним лимитом
+            current_count = self.channel_fail_count.get(channel_num, 0)
+            self.channel_fail_count[channel_num] = min(current_count + 1, 10)
+            self.log_message(f"CH{channel_num}: ⚠️ Fail count increased to {current_count + 1}", "buffer")
+                
+        # 4. Запускаем заставку для URL, UDP и GRAB_WINDOW источников
+        if self.is_streaming or reason == "startup_failed":
+            channel_data = self.multiplex_channels.get(channel_num)
+            if channel_data:
+                source_type = channel_data['source_type'].get()
+                # ⭐ ДОБАВЛЯЕМ grab_window в список
+                if source_type in ["URL_Input", "UDP_MPTS", "grab_window"]:
+                    self.start_individual_emergency(channel_num)
+                    self.schedule_channel_check(channel_num)
+                else:
+                    self.log_message(f"CH{channel_num}: ⏭️ No emergency for {source_type}", "buffer")
+
+        # ⭐ НОВОЕ: Обновляем индикатор Emergency
+        self.root.after(0, self.update_channel_emergency_indicator, channel_num)
+                    
+        # ⭐ НОВОЕ: Сбрасываем статистику в "--"
+        if channel_num in self.channel_speed:
+            self.channel_speed[channel_num].set("---")
+        if channel_num in self.channel_bitrate:
+            self.channel_bitrate[channel_num].set("---")                    
+        
+        self.emergency_merged = False
+        
+    def schedule_channel_check(self, channel_num):
+        """Запланировать проверку конкретного канала"""
+        if channel_num in self.channel_check_timers:
+            try:
+                self.root.after_cancel(self.channel_check_timers[channel_num])
+            except:
+                pass
+        
+        channel_data = self.multiplex_channels.get(channel_num)
+        if not channel_data:
+            return
+        
+        source_type = channel_data['source_type'].get()
+        fail_count = self.channel_fail_count.get(channel_num, 0)
+        
+        # Для grab_window используем специальную логику интервалов
+        if source_type == "grab_window" and channel_num in self.window_search_state:
+            attempts = self.window_search_state[channel_num]['attempts']
+            interval = self.get_window_search_interval(attempts) * 1000  # в миллисекундах
+            self.log_message(f"CH{channel_num}: ⏱️ Window search interval: {interval/1000}s (attempt {attempts})", "buffer")
+        else:
+            # ⭐ Проверяем cooldown
+            if hasattr(self, 'channel_long_cooldown') and self.channel_long_cooldown.get(channel_num, False):
+                interval = 180000  # 3 минуты
+                self.log_message(f"CH{channel_num}: ⏱️ COOLDOWN: 3min interval", "buffer")
+                self.channel_long_cooldown[channel_num] = False
+            elif channel_num in self.channel_long_results:
+                interval = 10000
+            elif fail_count >= 3:
+                interval = 180000
+                self.log_message(f"CH{channel_num}: ⏱️ LONG CHECK COOLDOWN: 3min interval", "buffer")
+            else:
+                interval = 10000
+        
+        timer = self.root.after(interval, lambda: self.check_single_channel(channel_num))
+        self.channel_check_timers[channel_num] = timer
+
+    def get_window_search_interval(self, attempts):
+        """Возвращает интервал проверки для окна на основе количества попыток"""
+        intervals = self.window_search_intervals
+        if attempts < len(intervals):
+            return intervals[attempts]
+        else:
+            # После всех попыток проверяем раз в 5 минут
+            return 300
+
+    def check_single_channel(self, channel_num):
+        """Проверить конкретный упавший канал"""
+        if self.channel_states.get(channel_num) != self.CHANNEL_STATE_FAILED:
+            return
+        
+        channel_data = self.multiplex_channels.get(channel_num)
+        if not channel_data:
+            return
+        
+        source_type = channel_data['source_type'].get()
+        
+        # Для grab_window проверяем наличие окон
+        if source_type == "grab_window":
+            windows = self.get_available_windows()
+            current_window = channel_data['window_title'].get()
+            original_title = channel_data.get('original_window_title', current_window)
+            
+            # Сохраняем оригинальное название при первом запуске
+            if 'original_window_title' not in channel_data:
+                channel_data['original_window_title'] = current_window
+            
+            self.log_message(f"CH{channel_num}: Checking grab_window recovery. Original: '{original_title[:50]}...'", "buffer")
+            self.log_message(f"CH{channel_num}: Current: '{current_window[:50]}...'", "buffer")
+            self.log_message(f"CH{channel_num}: Available windows: {len(windows)}", "buffer")
+            
+            # Состояние поиска для этого канала
+            if channel_num not in self.window_search_state:
+                self.window_search_state[channel_num] = {
+                    'attempts': 0,
+                    'last_search': time.time(),
+                    'original_title': original_title
+                }
+            
+            search_state = self.window_search_state[channel_num]
+            
+            # 1. Пытаемся найти оригинальное окно
+            if original_title and original_title in windows:
+                self.log_message(f"CH{channel_num}: ✅ Original window found!", "buffer")
+                channel_data['window_title'].set(original_title)
+                # Сбрасываем состояние поиска
+                del self.window_search_state[channel_num]
+                is_alive = True
+                
+            # 2. Если нет оригинального, ищем похожее
+            else:
+                similar = self.find_similar_window(original_title, windows) if original_title else None
+                if similar:
+                    self.log_message(f"CH{channel_num}: 🔍 Found similar window: '{similar[:50]}...'", "buffer")
+                    channel_data['window_title'].set(similar)
+                    # Сбрасываем состояние поиска
+                    del self.window_search_state[channel_num]
+                    is_alive = True
+                    
+                # 3. Если нет похожего, увеличиваем счетчик попыток и ждем дольше
+                else:
+                    search_state['attempts'] += 1
+                    self.log_message(f"CH{channel_num}: ⏳ No suitable window found (attempt {search_state['attempts']})", "buffer")
+                    
+                    # Берем первое доступное окно, если оно есть, чтобы хоть что-то запустить
+                    if windows and not current_window:
+                        self.log_message(f"CH{channel_num}: Using first available window as temporary", "buffer")
+                        channel_data['window_title'].set(windows[0])
+                        is_alive = True
+                    else:
+                        is_alive = False
+            
+            url = current_window or "no window"
+            
+        elif source_type == "URL_Input":
+            url = channel_data['url_input'].get().strip()
+            is_alive = self.check_url_stream(channel_num, url)
+        elif source_type == "UDP_MPTS":
+            url = channel_data['udp_url'].get().strip()
+            is_alive = self.check_udp_stream(channel_num, url)
+        else:
+            return
+        
+        # Пропускаем проверку если канал не должен проверяться
+        if source_type not in ["URL_Input", "UDP_MPTS", "grab_window"]:
+            return
+        
+        fail_count = self.channel_fail_count.get(channel_num, 0)
+        
+        # ⭐ РЕЖИМ ДЛИННЫХ ПРОВЕРОК
+        if fail_count >= 3:
+            if channel_num not in self.channel_long_results:
+                self.channel_long_results[channel_num] = []
+            
+            self.channel_long_results[channel_num].append(is_alive)
+            self.log_message(f"CH{channel_num}: 📊 Long check {len(self.channel_long_results[channel_num])}/7: {'✅' if is_alive else '❌'}", "buffer")
+            
+            if len(self.channel_long_results[channel_num]) >= 7:
+                if all(self.channel_long_results[channel_num]):
+                    self.log_message(f"CH{channel_num}: ✅ All 7 checks passed, restoring", "buffer")
+                    del self.channel_long_results[channel_num]
+                    self.restore_channel(channel_num)
+                else:
+                    fail_count = sum(1 for r in self.channel_long_results[channel_num] if not r)
+                    self.log_message(f"CH{channel_num}: ⚠️ {fail_count} checks failed, waiting 3min", "buffer")
+                    del self.channel_long_results[channel_num]
+                    self.schedule_channel_check(channel_num)
+            else:
+                self.schedule_channel_check(channel_num)
+            
+            return
+        
+        # ⭐ ОБЫЧНЫЙ РЕЖИМ (2 ПРОВЕРКИ)
+        if is_alive:
+            count = self.channel_recovery_count.get(channel_num, 0) + 1
+            self.channel_recovery_count[channel_num] = count
+            
+            if count >= 2:
+                self.log_message(f"CH{channel_num}: ✅ Stream recovered (2/2)", "buffer")
+                self.restore_channel(channel_num)
+            else:
+                self.log_message(f"CH{channel_num}: 🟡 Need one more confirmation ({count}/2)", "buffer")
+                self.schedule_channel_check(channel_num)
+        else:
+            self.channel_recovery_count[channel_num] = 0
+            # Для grab_window используем увеличивающийся интервал
+            if source_type == "grab_window" and channel_num in self.window_search_state:
+                attempts = self.window_search_state[channel_num]['attempts']
+                interval = self.get_window_search_interval(attempts)
+                self.log_message(f"CH{channel_num}: ⏱️ Next check in {interval}s (attempt {attempts})", "buffer")
+                self.root.after(interval * 1000, lambda: self.check_single_channel(channel_num))
+            else:
+                self.schedule_channel_check(channel_num)
+            
+    def start_individual_emergency(self, channel_num):
+        """Запуск отдельной заставки для одного канала"""
+        # Останавливаем существующую индивидуальную заставку
+        if channel_num in self.channel_individual_emergency:
+            old_process = self.channel_individual_emergency[channel_num]
+            if old_process and old_process.poll() is None:
+                self.kill_process_fast(old_process, f"CH{channel_num} individual emergency")
+        
+        emergency_file = self.emergency_file_path.get()
+        if not emergency_file or not os.path.exists(emergency_file):
+            self.log_message(f"CH{channel_num}: ❌ No emergency file", "buffer")
+            return
+        
+        ffmpeg_path = self.find_ffmpeg()
+        safe_path = os.path.abspath(emergency_file).replace('\\', '/')
+        output_port = self.base_multicast_port + channel_num - 1
+        
+        video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
+        
+        cmd = f'"{ffmpeg_path}" -hwaccel auto -re -stream_loop -1 '
+        cmd += f'-i "{safe_path}" '
+        cmd += f'-vcodec {self.video_codec.get()} -preset {self.video_preset.get()} '
+        
+        if self.video_codec.get() == "libx265":
+            cmd += f'-x265-params "bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}" '
+        else:
+            cmd += f'-b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
+        
+        cmd += f'-pix_fmt yuv420p -s {self.video_resolution.get()} -g {self.video_gop.get()} -r {self.video_fps.get()} -aspect 16:9 '
+        cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
+        cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
+        cmd += f'-metadata service_provider="EMERGENCY" '
+        cmd += f'-metadata service_name="Emergency CH{channel_num}" '
+        cmd += f'-f mpegts "udp://@238.0.0.1:{output_port}?pkt_size=1316&fifo_size=50000&overrun_nonfatal=1&reuse=1"'
+        # self.log_message(f"CH{channel_num} Emergency CMD: {cmd}", "buffer")
+        try:
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            
+            # ⭐ ЗАПУСКАЕМ МОНИТОР ДЛЯ EMERGENCY
+            threading.Thread(
+                target=self.monitor_emergency_output,
+                args=(channel_num, process),
+                daemon=True
+            ).start()
+            
+            time.sleep(1)  # Даем время на инициализацию
+            
+            self.channel_individual_emergency[channel_num] = process
+            self.log_message(f"CH{channel_num}: 🟡 Individual emergency started (PID: {process.pid})", "buffer")
+            
+        except Exception as e:
+            self.log_message(f"CH{channel_num}: ❌ Failed to start emergency: {e}", "buffer")
+
+    def monitor_emergency_output(self, channel_num, process):
+        """Мониторинг вывода emergency процесса с парсингом статистики"""
+        try:
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    line_stripped = line.strip()
+                    
+                    # ⭐ НОВОЕ: Парсим статистику (так же как в обычном канале)
+                    if "speed=" in line_stripped:
+                        match = re.search(r'speed=\s*([\d.]+)x', line_stripped)
+                        if match:
+                            speed = float(match.group(1))
+                            self.root.after(0, self.update_channel_stats, channel_num, 'speed', speed)
+                    
+                    if "bitrate=" in line_stripped:
+                        match = re.search(r'bitrate=\s*([\d.]+)\s*kbits/s', line_stripped)
+                        if match:
+                            bitrate = match.group(1)
+                            self.root.after(0, self.update_channel_stats, channel_num, 'bitrate', bitrate)
+                    
+                    # ⭐ Существующий код логирования ошибок (НЕ ТРОГАЕМ)
+                    if any(err in line.lower() for err in ['error', 'fail']):
+                        self.log_message(f"Emergency CH{channel_num}: {line.strip()[:200]}", "buffer")
+        except:
+            pass         
+                                                                                         
+    def restore_channel(self, channel_num):
+        """Восстановление канала - переключение с заставки на оригинал"""
+        self.log_message(f"CH{channel_num}: 🔄 Restoring channel", "buffer")
+        
+        # ⚠️ ПОЛУЧАЕМ ДАННЫЕ КАНАЛА
+        channel_data = self.multiplex_channels.get(channel_num)
+        
+        # ⭐ НОВОЕ: Очищаем состояние поиска окна
+        if channel_num in self.window_search_state:
+            del self.window_search_state[channel_num]        
+        
+        # ⭐ НОВОЕ: Сбрасываем статистику (будет обновлена новым процессом)
+        if channel_num in self.channel_speed:
+            self.channel_speed[channel_num].set("---")
+        if channel_num in self.channel_bitrate:
+            self.channel_bitrate[channel_num].set("---")        
+        
+        # 1. Останавливаем проверку канала
+        if channel_num in self.channel_check_timers:
+            try:
+                self.root.after_cancel(self.channel_check_timers[channel_num])
+                del self.channel_check_timers[channel_num]
+                self.log_message(f"CH{channel_num}: ✅ Check timer cancelled", "buffer")
+            except Exception as e:
+                self.log_message(f"CH{channel_num}: ⚠️ Timer cancel error: {e}", "buffer")
+        
+        # 2. Очищаем счетчик восстановления
+        if channel_num in self.channel_recovery_count:
+            del self.channel_recovery_count[channel_num]
+        
+        # 3. Останавливаем индивидуальную заставку
+        if channel_num in self.channel_individual_emergency:
+            process = self.channel_individual_emergency[channel_num]
+            if process and process.poll() is None:
+                self.kill_process_fast(process, f"CH{channel_num} emergency")
+            del self.channel_individual_emergency[channel_num]
+            self.log_message(f"CH{channel_num}: ✅ Emergency stopped", "buffer")
+        
+        # 4. Возобновляем метаданные для радио
+        if channel_data and channel_data.get('is_radio'):
+            self.log_message(f"CH{channel_num}: ▶️ Resuming metadata updates", "buffer")
+            self.root.after(10000, lambda ch=channel_num: self.update_radio_metadata_new())
+        
+        # 5. Запускаем оригинальный канал
+        if self.restart_original_channel(channel_num):
+            # Успешно запустили - обновляем состояние
+            self.channel_states[channel_num] = self.CHANNEL_STATE_ACTIVE
+            self.log_message(f"CH{channel_num}: ✅ Restored to ACTIVE", "buffer")
+            
+            # Очищаем временные данные
+            if channel_num in self.channel_fail_time:
+                del self.channel_fail_time[channel_num]
+        
+            # ⭐ НОВОЕ: Обновляем индикатор Emergency
+            self.root.after(0, self.update_channel_emergency_indicator, channel_num)
+    
+            # # ✅ Просто уменьшаем счетчик, но не сбрасываем в 0
+            # if channel_num in self.channel_fail_count:
+                # current = self.channel_fail_count[channel_num]
+                # self.channel_fail_count[channel_num] = max(1, current - 1)  # минимум 1
+                # self.log_message(f"CH{channel_num}: Fail count reduced to {self.channel_fail_count[channel_num]}", "buffer")
+        else:
+            # Не удалось запустить - возвращаем в FAILED и ПРИНУДИТЕЛЬНО запускаем заставку
+            self.log_message(f"CH{channel_num}: ⚠️ Restore failed, forcing emergency", "buffer")
+            self.channel_states[channel_num] = self.CHANNEL_STATE_FAILED  # ← принудительно
+            self.start_individual_emergency(channel_num)
+            self.schedule_channel_check(channel_num)     
             
     def start_streaming(self):
-        """Start both FFmpeg and UDP buffer with stdin support"""
+        """Start multi-process streaming"""
         if self.is_streaming:
             return
         
         try:
-            # ⭐ ПРОВЕРКА ИСТОЧНИКОВ ПЕРЕД ЗАПУСКОМ ⭐
-            if not self.validate_input_streams():
-                self.log_message("❌ Some input streams are not responding. Encoder not started.", "buffer")
-                messagebox.showwarning("Stream Check Failed", 
-                                     "Some input streams are not responding!\nCheck CH# Input Stream in logs.")
-                return
+            self.log_message("=== Starting multi-process streaming ===", "buffer")
+            # ⭐ НОВОЕ: Сбрасываем значения статистики перед запуском
             
-            ffmpeg_path = self.find_ffmpeg()
-            self.log_message(f"Starting streaming with FFmpeg: {ffmpeg_path}", "buffer")
+            # ⭐ СБРАСЫВАЕМ СТАТИСТИКУ ПЕРЕД ЗАПУСКОМ
+            self.encoder_speed.set("---")
+            self.encoder_bitrate.set("---")
+            self.buffer_input_bitrate.set("0")
+            self.buffer_output_bitrate.set("0")
+            self.buffer_fill.set("0/0")
             
-            # Инициализируем отслеживание метаданных
-            for i in range(1, 5):
-                setattr(self, f'last_metadata_ch{i}', "")
-            
-            # Сохраняем начальное состояние чекбоксов для каждого радио-канала
-            for ch_num, channel_data in self.multiplex_channels.items():
-                if (channel_data['source_type'].get() == "URL_Input" and 
-                    channel_data['is_radio'].get()):
-                    channel_data['metadata_enabled_at_start'] = channel_data['show_metadata'].get()
-                    channel_data['time_enabled_at_start'] = channel_data['radio_show_time'].get()
-                    self.log_message(f"CH{ch_num}: metadata_start={channel_data['metadata_enabled_at_start']}, time_start={channel_data['time_enabled_at_start']}", "buffer")            
-            
-            # Start UDP buffer in separate thread
+            # Сбрасываем значения каналов
+            for ch_num in self.channel_speed:
+                self.channel_speed[ch_num].set("---")
+            for ch_num in self.channel_bitrate:
+                self.channel_bitrate[ch_num].set("---")            
+                      
+            # 1. Start UDP/ZMQ buffer
             self.buffer_running = True
             self.buffer_thread = threading.Thread(target=self.run_zmq_buffer, daemon=True)
             self.buffer_thread.start()
-            
-            # Wait a moment for buffer to initialize
             time.sleep(2)
             
-            # Start FFmpeg
-            ffmpeg_cmd = self.build_ffmpeg_command()
-            self.log_message(f"Starting FFmpeg encoder", "ffmpeg")
+            # 2. Clear old processes
+            self.stop_all_channel_processes()
+            self.channel_processes.clear()
             
-            # ЗАМЕНА: Используем stdin=PIPE для отправки команд обновления метаданных
-            self.ffmpeg_process = subprocess.Popen(
-                ffmpeg_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.PIPE,  # ← ИЗМЕНЕНО: был DEVNULL, стал PIPE
-                bufsize=1,
-                universal_newlines=True,
-                encoding='utf-8',
-                errors='replace'
-            )
+            # 3. Start individual channel processes
+            channels_started = 0
+            for ch_num, channel_data in self.multiplex_channels.items():
+                if not channel_data['enabled'].get():
+                    continue
+                
+                # ⚠️ ОПРЕДЕЛЯЕМ source_type ЗДЕСЬ
+                source_type = channel_data['source_type'].get()
+                
+                # # ✅ ПРОВЕРЯЕМ URL/UDP ПЕРЕД ЗАПУСКОМ
+                # if source_type in ["URL_Input", "UDP_MPTS"]:
+                    # if source_type == "URL_Input":
+                        # url = channel_data['url_input'].get().strip()
+                        # if url and not self.check_url_stream(ch_num, url):
+                            # self.log_message(f"CH{ch_num}: ⚠️ Stream not available at startup", "buffer")
+                            # self.transition_to_failed(ch_num, "startup_failed")
+                            # continue
+                    # else:  # UDP_MPTS
+                        # url = channel_data['udp_url'].get().strip()
+                        # if url and not self.check_udp_stream(ch_num, url):
+                            # self.log_message(f"CH{ch_num}: ⚠️ UDP stream not available at startup", "buffer")
+                            # self.transition_to_failed(ch_num, "startup_failed")
+                            # continue
+                
+                output_port = self.base_multicast_port + ch_num - 1
+                
+                # if channel_data['source_type'].get() == "URL_Input" and channel_data['is_radio'].get():
+                if (source_type == "URL_Input" and   # ← ИСПОЛЬЗУЕМ source_type
+                    channel_data['is_radio'].get()):
+                    channel_data['metadata_enabled_at_start'] = channel_data['show_metadata'].get()
+                    channel_data['time_enabled_at_start'] = channel_data['radio_show_time'].get()
+                    self.log_message(f"CH{ch_num}: metadata_start={channel_data['metadata_enabled_at_start']}, time_start={channel_data['time_enabled_at_start']}", "buffer")                
+                    
+                    cmd = self.build_radio_channel_command(ch_num, channel_data, output_port)
+                    use_stdin = True
+                else:
+                    cmd = self.build_channel_ffmpeg_command(ch_num, channel_data, output_port)
+                    use_stdin = False
+                
+                if not cmd:
+                    continue
+                
+                try:
+                    process = subprocess.Popen(
+                        cmd,
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
+                        text=True,
+                        bufsize=1,
+                        universal_newlines=True,
+                        encoding='utf-8',
+                        errors='replace'
+                    )
+                    
+                    self.channel_processes[ch_num] = {
+                        'process': process,
+                        'pid': process.pid,
+                        'stdin': process.stdin if use_stdin else None,
+                        'port': output_port,
+                        'is_radio': channel_data['is_radio'].get() if channel_data['source_type'].get() == "URL_Input" else False,  # ← ИСПРАВЬТЕ ЭТУ СТРОКУ
+                        'is_emergency': False
+                    }
+                    
+                    # Save stdin for radio
+                    if use_stdin:
+                        channel_data['ffmpeg_stdin'] = process.stdin
+                        channel_data['ffmpeg_pid'] = process.pid
+                        self.log_message(f"DEBUG: CH{ch_num} - stdin saved, PID: {process.pid}", "buffer")
+                    
+                    # Start monitoring
+                    threading.Thread(
+                        target=self.monitor_channel_output,
+                        args=(ch_num, process, channel_data),
+                        daemon=True
+                    ).start()
+                    
+                    self.log_message(f"CH{ch_num}: Process started on port {output_port} (PID: {process.pid})", "buffer")
+                    channels_started += 1
+                    
+                except Exception as e:
+                    self.log_message(f"CH{ch_num}: Failed to start: {e}", "buffer")
             
-            # Сохраняем процесс для обновления метаданных
-            self.current_ffmpeg_process = self.ffmpeg_process
-            
-            # Start encoder monitoring
-            threading.Thread(target=self.monitor_encoder, daemon=True).start()
-            
+            if channels_started == 0:
+                self.log_message("No channels started", "buffer")
+                return
+                
+            # Инициализация состояний
+            for ch_num in self.multiplex_channels:
+                if self.multiplex_channels[ch_num]['enabled'].get():
+                    self.channel_states[ch_num] = self.CHANNEL_STATE_ACTIVE
+                    # ⭐ НОВОЕ: Скрываем индикатор Emergency для всех активных каналов
+                    self.root.after(100, self.update_channel_emergency_indicator, ch_num)
+
+     
+            # 4. Wait and start main multiplexer
+            # time.sleep(1)
+            self.start_main_multiplexer()                        
+            self.log_message(f"=== Multi-process streaming started ({channels_started} channels) ===", "buffer")
+
             self.is_streaming = True
-            self.encoder_status.set("Streaming")
+            
+            # Запуск монитора
+            self.start_state_monitor()                   
+            
+            # 6. Start radio metadata updates
+            self.start_radio_metadata_updates()
+                        
+            self.encoder_status.set("Multi-Streaming")
             self.buffer_status.set("Running")
             self.update_status_colors()
-            
             self.start_btn.config(state='disabled')
-            self.stop_btn.config(state='normal')
-            self.log_message("Streaming started successfully", "buffer")
-            
-            # Запускаем обновление метаданных через 5 секунд (дать FFmpeg запуститься)
-            self.root.after(5000, self.update_radio_metadata)
-            
+            self.stop_btn.config(state='normal') 
             # Auto-start overlay if enabled
             if self.overlay_auto_start.get():
-                self.root.after(1000, self.start_overlay)
-                
+                self.root.after(3000, self.start_overlay)            
+            # После запуска процессов, проверяем наличие UI для каналов
+            if self.multiplex_mode.get() and hasattr(self, 'channels_stats_container'):
+                if not self.channels_stats_container.winfo_children():
+                    self.init_channels_stats_ui()            
+                    
         except Exception as e:
             self.log_message(f"Error starting streaming: {e}", "buffer")
             import traceback
             self.log_message(f"Traceback: {traceback.format_exc()}", "buffer")
             self.stop_streaming()
-    
+                          
     def stop_streaming(self):
-        """Stop both FFmpeg and UDP buffer"""
-        self.log_message("Stopping streaming...", "buffer")
-        
-        # Stop FFmpeg
-        if self.ffmpeg_process:
-            try:
-                # Отправляем команду 'q' для graceful shutdown
-                if hasattr(self.ffmpeg_process, 'stdin') and self.ffmpeg_process.stdin:
-                    try:
-                        self.ffmpeg_process.stdin.write('q\n')
-                        self.ffmpeg_process.stdin.flush()
-                        time.sleep(0.5)
-                    except (BrokenPipeError, OSError):
-                        pass
-                
-                # Закрываем stdin
-                if self.ffmpeg_process.stdin:
-                    self.ffmpeg_process.stdin.close()
-                
-                # Закрываем stdout
-                if self.ffmpeg_process.stdout:
-                    self.ffmpeg_process.stdout.close()
-                
-                # Ожидаем завершения
-                self.ffmpeg_process.terminate()
-                self.ffmpeg_process.wait(timeout=5)
-                
-            except subprocess.TimeoutExpired:
-                # Принудительно завершаем если не отвечает
-                try:
-                    self.ffmpeg_process.kill()
-                    self.ffmpeg_process.wait()
-                except:
-                    pass
-            except Exception as e:
-                self.log_message(f"Error stopping FFmpeg: {e}", "buffer")
-            finally:
-                self.ffmpeg_process = None
-                self.current_ffmpeg_process = None
-        
-        # Stop buffer
+        """Stop multi-process streaming"""
+        self.log_message("Stopping multi-process streaming...", "buffer")
+
+        # 2. Stop UDP/ZMQ buffer
         self.buffer_running = False
         if self.buffer_thread:
             self.buffer_thread.join(timeout=3)
             self.buffer_thread = None
-        
+            
+        # 1. Stop all processes
         self.is_streaming = False
+        self._state_monitor_running = False
         self.encoder_status.set("Stopped")
         self.buffer_status.set("Stopped")
-        self.update_status_colors()
+        self.update_status_colors()        
+        self.stop_all_channel_processes()
         
+        # Очищаем индивидуальные заставки
+        for ch_num, process in list(self.channel_individual_emergency.items()):
+            self.kill_process_fast(process, f"CH{ch_num} individual emergency")
+        self.channel_individual_emergency.clear()
+
+        # 4. Очищаем состояния
+        self.channel_states.clear()
+        self.channel_fail_time.clear()
+       
+        
+        # ⭐ СБРАСЫВАЕМ СТАТИСТИКУ ОСНОВНОГО ЭНКОДЕРА
+        self.encoder_speed.set("---")
+        self.encoder_bitrate.set("---")
+        self.encoder_quality.set("---")
+        self.stream_time.set("00:00:00")
+        
+        # ⭐ СБРАСЫВАЕМ СТАТИСТИКУ UDP БУФФЕРА
+        self.buffer_input_bitrate.set("0")
+        self.buffer_output_bitrate.set("0")
+        self.buffer_fill.set("0/0")
+        self.buffer_dropped.set("0")
+        self.buffer_received.set("0")
+        self.buffer_sent.set("0")
+        self.buffer_overflow.set("0")
+        self.bitrate_deviation.set("0.0%")
+        
+        # ⭐ СБРАСЫВАЕМ ИСТОРИЮ СКОРОСТИ
+        self.main_speed_history.clear()
+        
+        # Сбрасываем значения каналов в "---"
+        for ch_num in self.channel_speed:
+            self.channel_speed[ch_num].set("---")
+        for ch_num in self.channel_bitrate:
+            self.channel_bitrate[ch_num].set("---")
+        
+        # Скрываем индикаторы Emergency
+        for ch_num in list(self.channel_emergency_labels.keys()):
+            self.root.after(0, self.update_channel_emergency_indicator, ch_num)
+        
+        # 4. Update buttons
         self.start_btn.config(state='normal')
         self.stop_btn.config(state='disabled')
-        self.log_message("Streaming stopped", "buffer")
+
+        # 5. Clear stdin references
+        for channel_data in self.multiplex_channels.values():
+            if 'ffmpeg_stdin' in channel_data:
+                channel_data['ffmpeg_stdin'] = None
+            if 'ffmpeg_pid' in channel_data:
+                channel_data['ffmpeg_pid'] = None
+        
+        self.log_message("Multi-process streaming stopped", "buffer")
         
         # Очищаем сохраненные метаданные
         for i in range(1, 5):
             if hasattr(self, f'last_metadata_ch{i}'):
                 setattr(self, f'last_metadata_ch{i}', "")
         
+        # Очищаем состояние поиска окон
+        self.window_search_state.clear()
+                        
     def run_zmq_buffer(self):
         """Run ZMQ buffer with guaranteed constant output bitrate"""
         IN_PORT = int(self.udp_input_port.get())
@@ -9293,75 +10077,230 @@ class DVBT2EncoderGUI:
             sock_in.close()
             zmq_socket.close()
             context.term()
+
+    def update_channel_stats(self, channel_num, stat_type, value):
+        """Обновление статистики канала (speed или bitrate)"""
+        # Инициализация при первом обращении
+        if channel_num not in self.channel_speed:
+            self.channel_speed[channel_num] = tk.StringVar(value="0.00")
+            self.channel_bitrate[channel_num] = tk.StringVar(value="0")
         
-    def monitor_encoder(self):
-        """Monitor FFmpeg encoder output"""
-        if not self.ffmpeg_process:
+        if stat_type == 'speed':
+            # Форматируем с двумя знаками после запятой
+            self.channel_speed[channel_num].set(f"{value:.2f}")
+            self.channel_last_speed[channel_num] = value
+            # Обновляем цвет если есть метка
+            if channel_num in self.channel_speed_labels:
+                self.update_channel_speed_color(channel_num)
+        elif stat_type == 'bitrate':
+            # Битрейт как целое число
+            self.channel_bitrate[channel_num].set(str(int(float(value))))
+            
+    def update_channel_speed_color(self, channel_num):
+        """Обновление цвета скорости канала (как у основного)"""
+        try:
+            speed = float(self.channel_speed[channel_num].get())
+            label = self.channel_speed_labels.get(channel_num)
+            if label:
+                if speed >= 1.0:
+                    label.configure(foreground='green')
+                elif speed >= 0.990:
+                    label.configure(foreground='orange')
+                else:
+                    label.configure(foreground='red')
+        except (ValueError, KeyError):
+            pass            
+            
+    def update_channels_visibility(self):
+        """Обновляет видимость каналов (вызывается при изменении multiplex_mode)"""
+        if not hasattr(self, 'channels_frame'):
             return
         
-        start_time = time.time()
+        if self.multiplex_mode.get():
+            self.channels_frame.pack(side='left', fill='x', expand=True)
+            if not hasattr(self, 'channels_stats_container') or not self.channels_stats_container.winfo_children():
+                # Создаем UI если его нет
+                self.channels_stats_container = ttk.Frame(self.channels_frame)
+                self.channels_stats_container.pack(fill='x')
+                self.init_channels_stats_ui()
+        else:
+            self.channels_frame.pack_forget()  
+
+    def update_channel_emergency_indicator(self, channel_num):
+        """Обновляет видимость индикатора Emergency для канала"""
+        if channel_num not in self.channel_emergency_labels:
+            return
         
-        try:
-            # Читаем вывод FFmpeg
-            for line in iter(self.ffmpeg_process.stdout.readline, ''):
-                if not self.is_streaming:
-                    break
+        emergency_label = self.channel_emergency_labels[channel_num]
+        
+        # Проверяем состояние канала
+        if self.channel_states.get(channel_num) == self.CHANNEL_STATE_FAILED:
+            # Канал в состоянии FAILED - показываем E
+            emergency_label.pack(side='left', padx=(0, 2))
+        else:
+            # Канал работает - скрываем E
+            emergency_label.pack_forget()            
+
+    def init_channels_stats_ui(self):
+        """Создает UI для статистики каналов (вызывается после загрузки каналов)"""
+        if not hasattr(self, 'channels_stats_container') or not self.channels_stats_container:
+            return
+        
+        # Проверяем, загружены ли каналы
+        if not hasattr(self, 'multiplex_channels') or not self.multiplex_channels:
+            self.log_message("⏳ Channels not loaded yet, postponing UI init", "buffer")
+            self.root.after(500, self.init_channels_stats_ui)
+            return
+        
+        # Очищаем контейнер
+        for widget in self.channels_stats_container.winfo_children():
+            widget.destroy()
+        
+        # Словари для хранения виджетов
+        self.channel_frames = {}  # {channel_num: frame}
+        self.channel_speed_labels = {}  # {channel_num: label}
+        self.channel_bitrate_labels = {}  # {channel_num: label}
+        self.channel_emergency_labels = {}  # {channel_num: label}
+        
+        # Получаем активные каналы в порядке их отображения в мультиплексе
+        active_channels = []
+        display_counter = 1
+        
+        for ch_num, channel_data in self.multiplex_channels.items():
+            if channel_data['enabled'].get():
+                # Сохраняем соответствие: отображаемый номер -> реальный номер канала
+                active_channels.append((display_counter, ch_num, channel_data))
+                display_counter += 1
+        
+        if not active_channels:
+            ttk.Label(self.channels_stats_container, text="No active channels", 
+                     font=('Arial', 8, 'italic')).pack(anchor='w')
+            return
+        
+        self.log_message(f"Creating UI for {len(active_channels)} active channels", "buffer")
+        
+        # Создаем столбцы по 2 канала
+        columns = []
+        current_col_frame = None
+        
+        for i, (display_num, real_num, channel_data) in enumerate(active_channels):
+            if i % 2 == 0:
+                current_col_frame = ttk.Frame(self.channels_stats_container)
+                current_col_frame.pack(side='left', padx=(15 if i > 0 else 0, 15))
+                columns.append(current_col_frame)
+            
+            if current_col_frame:
+                # Создаем фрейм для канала (ключ - реальный номер для связи с процессами)
+                ch_frame = ttk.Frame(current_col_frame)
+                ch_frame.pack(fill='x', pady=(0 if i % 2 == 0 else 8, 0))
+                self.channel_frames[real_num] = ch_frame
                 
-                line = line.strip()
-                if line:
-                    # Логируем в буфер
-                    self.log_message(f"[FFMPEG] {line}", "ffmpeg")
-                    
-                    # ⭐ ВАЖНО: обрабатываем статистику ⭐
-                    self.process_encoder_output(line, start_time)
-                    
-                    # Проверяем на ошибки
-                    if "error" in line.lower() or "failed" in line.lower():
-                        if "Permission denied" not in line:  # Игнорируем некоторые ошибки
-                            self.log_message(f"⚠️ FFmpeg error detected: {line[:100]}", "buffer")
-                    
-                    # Проверяем на переполнение буфера
-                    if "buffer" in line.lower() and ("overrun" in line.lower() or "queue" in line.lower()):
-                        self.log_message(f"⚠️ Buffer warning: {line[:80]}", "buffer")
-        except Exception as e:
-            if self.is_streaming:
-                self.log_message(f"Encoder monitor error: {e}", "buffer")
+                # Инициализация переменных статистики если нужно
+                if real_num not in self.channel_speed:
+                    self.channel_speed[real_num] = tk.StringVar(value="---")
+                    self.channel_bitrate[real_num] = tk.StringVar(value="---")
+                
+                # ОДНА СТРОКА: CH{display_num} S: 1.02x B: 445k
+                row_frame = ttk.Frame(ch_frame)
+                row_frame.pack(anchor='w')
+                
+                # ⭐ ИСПОЛЬЗУЕМ ОТОБРАЖАЕМЫЙ НОМЕР ДЛЯ ПОЛЬЗОВАТЕЛЯ
+                ttk.Label(row_frame, text=f"CH{display_num}", 
+                         font=('Arial', 7, 'bold')).pack(side='left', padx=(0, 4))
+                
+                # Индикатор Emergency (привязан к реальному номеру)
+                emergency_label = ttk.Label(row_frame, text="E", 
+                                           font=('Arial', 7, 'bold'), 
+                                           foreground='red')
+                emergency_label.pack(side='left', padx=(0, 2))
+                emergency_label.pack_forget()
+                self.channel_emergency_labels[real_num] = emergency_label
+                
+                # S:
+                ttk.Label(row_frame, text="S:", font=('Arial', 7, 'bold')).pack(side='left')
+                
+                speed_label = ttk.Label(row_frame, textvariable=self.channel_speed[real_num],
+                                       font=('Arial', 9, 'bold'))
+                speed_label.pack(side='left', padx=(2, 4))
+                self.channel_speed_labels[real_num] = speed_label
+                
+                # B:
+                ttk.Label(row_frame, text="B:", font=('Arial', 7, 'bold')).pack(side='left')
+                
+                bitrate_label = ttk.Label(row_frame, textvariable=self.channel_bitrate[real_num],
+                                         font=('Arial', 9, 'bold'), foreground='blue')
+                bitrate_label.pack(side='left', padx=(2, 2))
+                
+                ttk.Label(row_frame, text="k", font=('Arial', 6)).pack(side='left')
+                self.channel_bitrate_labels[real_num] = bitrate_label
         
-        # Если процесс завершился неожиданно
-        if self.is_streaming and self.ffmpeg_process:
-            return_code = self.ffmpeg_process.poll()
-            if return_code is not None and return_code != 0:
-                self.log_message(f"❌ FFmpeg process exited with code {return_code}", "buffer")
-                self.root.after(100, self.stop_streaming)
-    
-    def process_encoder_output(self, line, start_time):
-        """Process encoder output line and extract statistics"""
-        try:
-            # Update stream time
-            elapsed = time.time() - start_time
-            hours = int(elapsed // 3600)
-            minutes = int((elapsed % 3600) // 60)
-            seconds = int(elapsed % 60)
-            self.stream_time.set(f"{hours:02d}:{minutes:02d}:{seconds:02d}")
+        self.log_message(f"UI created successfully for {len(active_channels)} channels", "buffer")
+                        
+    def check_system_speed(self, current_speed):
+        """Проверка скорости основного мультиплексора и перезапуск при необходимости"""
+        
+        # Проверяем cooldown (не перезапускать слишком часто)
+        current_time = time.time()
+        if current_time - self.speed_restart_cooldown < self.speed_restart_cooldown_seconds:
+            return
+        
+        # Добавляем текущую скорость в историю
+        self.main_speed_history.append(current_speed)
+        
+        # Храним только последние 10 значений
+        if len(self.main_speed_history) > 10:
+            self.main_speed_history.pop(0)
+        
+        # Проверяем, достаточно ли данных
+        if len(self.main_speed_history) < self.speed_restart_count:
+            return
+        
+        # Берем последние N значений для проверки
+        last_values = self.main_speed_history[-self.speed_restart_count:]
+        
+        # Проверяем, все ли значения ниже порога
+        all_below_threshold = all(speed < self.speed_restart_threshold for speed in last_values)
+        
+        if all_below_threshold:
+            self.log_message(f"⚠️ CRITICAL: Main multiplexer speed below {self.speed_restart_threshold:.3f}x for {self.speed_restart_count} checks", "buffer")
+            self.log_message(f"   Last values: {[f'{s:.3f}x' for s in last_values]}", "buffer")
+            self.log_message("🔄 Restarting entire streaming system...", "buffer")
             
-            if "speed=" in line:
-                match = re.search(r'speed=\s*([\d.]+)x', line)
-                if match:
-                    self.encoder_speed.set(match.group(1))
-                    self.update_speed_color()
+            # Устанавливаем cooldown
+            self.speed_restart_cooldown = current_time
             
-            if "bitrate=" in line:
-                match = re.search(r'bitrate=\s*([\d.]+)\s*kbits/s', line)
-                if match:
-                    self.encoder_bitrate.set(match.group(1))
+            # Очищаем историю
+            self.main_speed_history.clear()
             
-            if "q=" in line:
-                match = re.search(r'q=([\d.-]+)', line)
-                if match:
-                    self.encoder_quality.set(match.group(1))
-                    
-        except:
-            pass
+            # Перезапускаем в главном потоке
+            self.root.after(0, self.restart_streaming_system)
+
+    def restart_streaming_system(self):
+        """Полный перезапуск системы стриминга"""
+        if not self.is_streaming:
+            return
+        
+        self.log_message("🔄 Executing full system restart...", "buffer")
+        
+        # Сохраняем состояние
+        was_streaming = self.is_streaming
+        was_modulator = self.modulator_running
+        
+        # Останавливаем всё
+        self.stop_streaming()
+        
+        # Небольшая пауза
+        time.sleep(3)
+        
+        # Перезапускаем
+        if was_streaming:
+            self.start_streaming()
+        
+        # Перезапускаем модулятор если был включен
+        if was_modulator:
+            self.root.after(5000, self.start_modulator)
+        
+        self.log_message("✅ System restart completed", "buffer") 
     
     def get_audio_channels_ffmpeg(self):
         """Convert channel name to FFmpeg format"""
@@ -9373,11 +10312,13 @@ class DVBT2EncoderGUI:
         return channels_map.get(self.audio_channels.get(), "2")
                 
     def build_ffmpeg_command(self):
-        """Build FFmpeg command - выбирает между обычным и мультиплекс режимом"""
+        """Build FFmpeg command - selects between simple and multiplex mode"""
         if self.multiplex_mode.get():
-            return self.build_multiplex_ffmpeg_command()
+            # Return all commands for multi-process system
+            return self.build_multiplex_system_command()
         else:
-            return self.build_simple_ffmpeg_command()     
+            # Original simple mode command
+            return self.build_simple_ffmpeg_command()
     
     def build_simple_ffmpeg_command(self):
         """Build simple FFmpeg command for single channel - EXACT format"""
@@ -9431,7 +10372,7 @@ class DVBT2EncoderGUI:
         
         # Common parameters - ТОЧНО как в оригинале
         cmd += (
-            f'-pix_fmt yuv420p -s {self.video_resolution.get()} -r {fps} '
+            f'-pix_fmt yuv420p -s {self.video_resolution.get()} -g {self.video_gop.get()} -aspect 16:9 -r {fps} '
             f'-map 0:0 -map 1:0 -c:a {audio_codec} '
             f'-b:a {self.audio_bitrate.get()} '
             f'-ar {self.audio_sample_rate.get()} '
@@ -9447,371 +10388,631 @@ class DVBT2EncoderGUI:
             f'-metadata title="{self.service_name.get()}" '
             f'-metadata artist="{self.service_name.get()}" '
             f'-flush_packets 0 -muxrate {self.muxrate.get()} '
-            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&burst_bits=1" '
+            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&buffer_size=500000&overrun_nonfata=1&burst_bits=1" '
             f'-flush_packets 0 '
+            # self.log_message(f"CH{channel_num} Simple CMD: {cmd}", "buffer")
         )
-        
+        # self.log_message(f"CH{channel_num} Simple CMD: {cmd}", "buffer")
         return cmd
-        
-    def build_multiplex_ffmpeg_command(self):
-        """Build multiplex FFmpeg command"""
-        # Получаем активные каналы
-        active_channels = []
-        for ch_num, channel_data in self.multiplex_channels.items():
-            if channel_data['enabled'].get():
-                active_channels.append((ch_num, channel_data))
-        
-        # Если нет активных каналов, используем простую команду
-        if not active_channels:
-            self.log_message("No active channels in multiplex mode, using simple mode", "buffer")
-            return self.build_simple_ffmpeg_command()
-        
-        # Если активен только CH1 и он использует input_devices
-        if len(active_channels) == 1 and active_channels[0][0] == 1:
-            ch_num, channel_data = active_channels[0]
-            
-            # Если CH1 использует input_devices и устройства выбраны
-            if (channel_data['source_type'].get() == "input_devices" and 
-                channel_data['video_device'].get() and 
-                channel_data['audio_device'].get()):
-                
-                # Используем старый метод для совместимости
-                return self.build_simple_ffmpeg_command()
-        
-        # Иначе строим мультиплекс команду
-        return self.build_multiplex_ffmpeg_command_advanced(active_channels)        
-        
-    def build_multiplex_ffmpeg_command_advanced(self, active_channels):
-        """Build multiplex command with UDP PID filtering and radio mode support"""
+
+    def build_channel_ffmpeg_command(self, channel_num, channel_data, output_port):
+        """Build FFmpeg command for individual channel"""
         ffmpeg_path = self.find_ffmpeg()
         
-        self.log_message(f"Building command for {len(active_channels)} channels", "buffer")
+        cmd = f'"{ffmpeg_path}" -hwaccel auto '
         
-        # Битрейты
-        video_per_channel, audio_bitrate, channel_count = self.get_channel_bitrates()
+        source_type = channel_data['source_type'].get()
+        is_radio = (source_type == "URL_Input" and channel_data['is_radio'].get())
         
-        # Начинаем команду
-        cmd = f'"{ffmpeg_path}" -hwaccel auto -re'
+        # Add -re for media files and URLs (not for input_devices or radio)
+        if source_type in ["media_folder", "URL_Input"] and not is_radio:
+            cmd += '-re '
+        
+        # Build input based on source type
+        if source_type == "input_devices":
+            video_device = channel_data['video_device'].get()
+            audio_device = channel_data['audio_device'].get()
+            
+            if video_device:
+                cmd += f'-thread_queue_size 2048 -itsoffset -0.65 '
+                cmd += f'-f dshow -thread_queue_size 512K -rtbufsize 400M '
+                cmd += f'-i "video={video_device}" '
+            
+            if audio_device:
+                cmd += f'-f dshow -thread_queue_size 512K -rtbufsize 400M '
+                cmd += f'-i "audio={audio_device}" '
+        
+        elif source_type == "media_folder":
+            media_path = channel_data['media_path'].get()
+            if media_path and os.path.exists(media_path):
+                playlist_file = self.create_media_playlist(channel_num, media_path)
+                if playlist_file and os.path.exists(playlist_file):
+                    safe_path = os.path.abspath(playlist_file).replace('\\', '/')
+                    cmd += f' -f concat -safe 0 -stream_loop -1 -i "{safe_path}" '
+                else:
+                    return None
+        
+        elif source_type == "URL_Input":
+            url = channel_data['url_input'].get().strip()
+            if url:
+                if is_radio:
+                    # Radio mode uses separate method
+                    return self.build_radio_channel_command(channel_num, channel_data, output_port)
+                else:
+                    cmd += f' -timeout 2000000 -reconnect 0 -i "{url}" '
+                    
+        elif source_type == "grab_window":
+            window_title = channel_data['window_title'].get().strip()
+            audio_device = channel_data['audio_device'].get().strip()
+            
+            if not window_title:
+                self.log_message(f"CH{channel_num}: No window selected", "buffer")
+                return None
+            
+            # Экранируем кавычки в названии окна
+            safe_title = window_title.replace('"', '\\"')
+            
+            # Захват окна
+            cmd += f'-hwaccel auto -thread_queue_size 2048 -itsoffset -0.65 '
+            cmd += f'-f gdigrab -thread_queue_size 512K -rtbufsize 400M -framerate {self.video_fps.get()} '
+            cmd += f'-i title="{safe_title}" '
+            
+            # Аудио устройство
+            if audio_device:
+                cmd += f'-f dshow -thread_queue_size 512K -rtbufsize 400M -i "audio={audio_device}" '
+            
+            # Для service_name берем первые слова из названия окна
+            words = window_title.split()
+            service_name = ' '.join(words[:3]) if words else f"Window_{channel_num}"
+            if len(service_name) > 30:
+                service_name = service_name[:27] + "..."
+            
+            # Сохраняем для метаданных
+            channel_data['service_name_override'] = service_name                    
+        
+        elif source_type == "UDP_MPTS":
+            url = channel_data['udp_url'].get().strip()
+            if url:
+                cmd += f'-timeout 2000000 -i "{url}" '
+        
+        # Get bitrates (already divided for multiplex mode)
+        video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
+        video_per_channel = video_bitrate  # Already divided in get_channel_bitrates()
+        
+        # Video encoding
+        codec = self.video_codec.get()
+        preset = self.video_preset.get()
+        tune = self.video_tune.get()
+        
+        cmd += f'-vcodec {codec} -preset {preset} '
+        if tune:
+            cmd += f'-tune {tune} '
+        
+        if codec == "libx265":
+            cmd += f'-x265-params "bitrate={video_per_channel}:vbv-maxrate={video_per_channel}:vbv-bufsize={video_per_channel//2}" '
+        else:
+            cmd += f'-b:v {video_per_channel}k -minrate {video_per_channel}k -maxrate {video_per_channel}k -bufsize {video_per_channel//2}k '
+        
+        # Common video params
+        cmd += f'-pix_fmt yuv420p -s {self.video_resolution.get()} -g {self.video_gop.get()} -aspect 16:9 -r {self.video_fps.get()} '
+        
+        # Audio encoding
+        cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
+        cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
+        
+        # Metadata
+        if source_type == "grab_window" and 'service_name_override' in channel_data:
+            service_name = channel_data['service_name_override']
+        else:
+            service_name = channel_data['name'].get() or f"Channel_{channel_num}"
 
-        # Собираем информацию об источниках
-        map_commands = []
-        program_commands = []
+        safe_name = service_name.replace('"', '\\"')
+        cmd += f'-metadata service_provider="{self.service_provider.get()}" '
+        cmd += f'-metadata service_name="{safe_name}" '
+        
+        # Output to multicast UDP
+        cmd += f'-f mpegts -flush_packets 0 '
+        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&fifo_size=50000&overrun_nonfatal=1"'
+        # self.log_message(f"CH{channel_num} Channel CMD: {cmd}", "buffer")
+        
+        return cmd
+
+    def build_main_multiplexer_command(self):
+        """Build main multiplexer command (c copy only)"""
+        ffmpeg_path = self.find_ffmpeg()
+        
+        cmd = f'"{ffmpeg_path}" -hwaccel auto -re '
+        
+        # Add all active channels as UDP inputs
+        active_channels = []
+        input_index = 0
+        
+        for ch_num, channel_data in self.multiplex_channels.items():
+            if channel_data['enabled'].get():
+                output_port = self.base_multicast_port + ch_num - 1
+                cmd += f'-i "udp://@238.0.0.1:{output_port}?pkt_size=1316&fifo_size=500000" '
+                active_channels.append((ch_num, channel_data, input_index))
+                input_index += 1
+        
+        if not active_channels:
+            return None
+        
+        # Map commands for each channel
         stream_counter = 0
-        channel_stream_map = {}
+        for ch_num, channel_data, input_idx in active_channels:
+            # For UDP MPTS use PID filtering, for others simple map
+            if channel_data['source_type'].get() == "UDP_MPTS":
+                video_pid = channel_data.get('saved_video_pid', '0x100')
+                audio_pid = channel_data.get('saved_audio_pid', '0x101')
+                cmd += f'-map {input_idx}:i:{video_pid}? -map {input_idx}:i:{audio_pid}? '
+            else:
+                cmd += f'-map {input_idx}:v? -map {input_idx}:a? '
+            stream_counter += 2
         
-        # Словари для отслеживания источников - ВЫНЕСИТЕ ИХ ЗДЕСЬ, ПЕРЕД ЦИКЛОМ
-        lavfi_sources = {}  # (color, resolution) -> input_idx
-        udp_sources = {}    # url -> input_idx
-        radio_video_sources = {}  # channel_num -> (type, source)
+        # Programs
+        stream_counter = 0
+        for ch_num, channel_data, input_idx in active_channels:
+            service_name = channel_data['name'].get() or f"Channel_{ch_num}"
+            safe_name = service_name.replace('"', '\\"')
+            cmd += f'-program title="{safe_name}":st={stream_counter}:st={stream_counter+1} '
+            stream_counter += 2
         
-        next_input_idx = 0
+        # Multiplexing parameters (c copy only + muxrate)
+        cmd += '-c copy -movflags +faststart '
+        cmd += self.get_mpegts_output_params()  # Original method with muxrate
+        # self.log_message(f"CH{channel_num} Main MP CMD: {cmd}", "buffer")
+        return cmd
+
+    def build_multiplex_system_command(self):
+        """Build all commands for multi-process system"""
+        commands = ["=== MULTI-PROCESS FFMPEG COMMANDS ===\n"]
+        
+        # 1. Individual channel commands
+        commands.append("=== INDIVIDUAL CHANNEL COMMANDS ===")
+        for ch_num, channel_data in self.multiplex_channels.items():
+            if channel_data['enabled'].get():
+                output_port = self.base_multicast_port + ch_num - 1
+                
+                if channel_data['source_type'].get() == "URL_Input" and channel_data['is_radio'].get():
+                    cmd = self.build_radio_channel_command(ch_num, channel_data, output_port)
+                else:
+                    cmd = self.build_channel_ffmpeg_command(ch_num, channel_data, output_port)
+                
+                if cmd:
+                    commands.append(f"\n--- CH{ch_num} Command ---")
+                    commands.append(cmd)
+        
+        # 2. Main multiplexer command
+        commands.append("\n\n=== MAIN MULTIPLEXER COMMAND ===")
+        main_cmd = self.build_main_multiplexer_command()
+        if main_cmd:
+            commands.append(main_cmd)
+        
+        return "\n".join(commands)
+                
+    def start_main_multiplexer(self):
+        """Start main multiplexer process"""
+        cmd = self.build_main_multiplexer_command()
+        if not cmd:
+            self.log_message("Failed to build multiplexer command", "buffer")
+            return
+        
+        try:
+            self.main_multiplexer_process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            
+            threading.Thread(
+                target=self.monitor_multiplexer_output,
+                daemon=True
+            ).start()
+            
+            self.log_message(f"Main multiplexer started (PID: {self.main_multiplexer_process.pid})", "buffer")
+            
+        except Exception as e:
+            self.log_message(f"Failed to start multiplexer: {e}", "buffer")        
+                        
+    def start_radio_metadata_updates(self):
+        """Start radio metadata updates"""
+        if not self.is_streaming:
+            return
+        
+        self.log_message("=== SCHEDULING METADATA UPDATES ===", "buffer")
+        
+        # Первое обновление через 5 секунд
+        self.root.after(10000, self.update_radio_metadata_new)
+        
+    def build_radio_channel_command(self, channel_num, channel_data, output_port):
+        """Создает команду для радио-канала с filter_complex и stdin"""
+        # self.log_message(f"DEBUG: Building radio command for CH{channel_num}", "buffer")
+        
+        ffmpeg_path = self.find_ffmpeg()
+        
+        # Используем переданные параметры
+        radio_text = channel_data['radio_text'].get()
+        radio_text_safe = radio_text.replace("'", "'\\''").replace(':', '\\:')
+        text_color = channel_data['radio_text_color'].get()
+        text_size = channel_data['radio_text_size'].get()
+        
+        # Фон
+        bg_type = channel_data['radio_bg_type'].get()
+        resolution = self.video_resolution.get()
+        fps = self.video_fps.get()
+        
+        # Создаем filter_complex
         filter_chains = []
+        filter_indices = {}  # Сохраняем индексы для этого канала
+        filter_counter = 0
         
-        # ОЧЕНЬ ВАЖНО: очищаем индексы фильтров
-        self.channel_filter_indices.clear()
-        global_filter_counter = 0
+        # self.log_message(f"DEBUG: CH{channel_num} - Filter setup: text='{radio_text[:30]}...'", "buffer")
         
-        # Сортируем каналы по номеру
-        sorted_channels = sorted(active_channels, key=lambda x: x[0])
+        # 1. Основной текст радио
+        text_filter = (
+            f"drawtext=text='{radio_text_safe}':"
+            f"fontsize={text_size}:"
+            f"fontcolor={text_color}:"
+            f"box=1:"
+            f"boxcolor=black@0.5:"
+            f"boxborderw=10:"
+            f"x=(w-text_w)/2:"
+            f"y=(h-text_h)/2"
+        )
+        filter_chains.append(text_filter)
+        filter_indices['text'] = filter_counter
+        filter_counter += 1
+        # self.log_message(f"DEBUG: CH{channel_num} - Text filter index: {filter_indices['text']}", "buffer")
         
-        # Проходим по каналам в порядке на вкладке
-        for ch_num, channel_data in sorted_channels:
-            source_type = channel_data['source_type'].get()
-            
-            if source_type == "UDP_MPTS":
-                udp_url = channel_data['udp_url'].get().strip()
-                selected_program = channel_data['selected_program'].get()
-                
-                if udp_url:
-                    # Проверяем, добавляли ли мы уже этот UDP источник
-                    if udp_url not in udp_sources:
-                        cmd += f' -i "{udp_url}"'
-                        udp_sources[udp_url] = next_input_idx
-                        next_input_idx += 1
-                    
-                    input_idx = udp_sources[udp_url]
-                    
-                    # Пытаемся найти PID
-                    video_pid = channel_data.get('saved_video_pid', '')
-                    audio_pid = channel_data.get('saved_audio_pid', '')
-                    
-                    # 1. Проверяем сохраненные PID
-                    if not video_pid or not audio_pid:
-                        # Пробуем найти в available_programs
-                        selected_program = channel_data['selected_program'].get()
-                        if selected_program and selected_program != 'no programs found':
-                            for program in channel_data.get('available_programs', []):
-                                if program['name'] == selected_program:
-                                    video_pid = program.get('video_pid', '')
-                                    audio_pid = program.get('audio_pid', '')
-                                    # Сохраняем на будущее
-                                    channel_data['saved_video_pid'] = video_pid
-                                    channel_data['saved_audio_pid'] = audio_pid
-                                    break
-                    
-                    # Если нашли PID - добавляем map
-                    if video_pid and audio_pid:
-                        # ВАЖНО: Используем текущий input_idx (а не +1)
-                        map_commands.append(f'-map {input_idx}:i:{video_pid}?')
-                        map_commands.append(f'-map {input_idx}:i:{audio_pid}?')
-                        
-                        channel_stream_map[ch_num] = [stream_counter, stream_counter + 1]
-                        stream_counter += 2
-                        
-                        self.log_message(f"  CH{ch_num}: UDP with saved PID", "buffer")
-                        self.log_message(f"    Input index: {input_idx}", "buffer")
-                        self.log_message(f"    Video PID: {video_pid}", "buffer")
-                        self.log_message(f"    Audio PID: {audio_pid}", "buffer")
-            
-            elif source_type == "URL_Input":
-                url = channel_data['url_input'].get().strip()
-                is_radio = channel_data['is_radio'].get()
-                
-                if url:
-                    if is_radio:
-                        # РАДИО РЕЖИМ
-                        bg_type = channel_data['radio_bg_type'].get()
-                        resolution = self.video_resolution.get()
-                        
-                        # Экранирование текста
-                        radio_text = channel_data['radio_text'].get()
-                        if radio_text:
-                            radio_text_safe = radio_text.replace("'", "'\\''").replace(':', '\\:')
-                        else:
-                            radio_text_safe = "Radio Station"
-                        
-                        # Параметры текста
-                        text_color = channel_data['radio_text_color'].get()
-                        text_size = channel_data['radio_text_size'].get()
-                        
-                        # Параметры времени
-                        show_time = channel_data['radio_show_time'].get()
-                        time_color = channel_data['radio_time_color'].get()
-                        time_size = channel_data['radio_time_size'].get()
-                        
-                        # Создаем фильтр с правильным синтаксисом
-                        drawtext_filters = []
-                        
-                        # ⭐ ОСНОВНОЙ ТЕКСТ РАДИО С БОКСОМ ⭐
-                        drawtext_filters.append(
-                            f"drawtext=text='{radio_text_safe}':"
-                            f"fontsize={text_size}:"
-                            f"fontcolor={text_color}:"
-                            f"box=1:"
-                            f"boxcolor=black@0.5:"
-                            f"boxborderw=10:"
-                            f"x=(w-text_w)/2:"
-                            f"y=(h-text_h)/2"
-                        )
-                        
-                        global_filter_counter += 1
-                        
-                        # ⭐ МЕТАДАННЫЕ С БОКСОМ ЕСЛИ ВКЛЮЧЕНЫ ⭐
-                        # ТЕПЕРЬ С ПУСТЫМ ТЕКСТОМ - будет обновляться через stdin
-                        if channel_data['show_metadata'].get():
-                            # ⭐ ВАЖНО: сохраняем индекс фильтра для этого канала ⭐
-                            self.channel_filter_indices[ch_num] = global_filter_counter
-                            self.log_message(f"CH{ch_num} metadata filter index: {global_filter_counter}", "buffer")
-                            
-                            metadata_offset = channel_data['metadata_position'].get()
-                            metadata_size = channel_data['metadata_size'].get()
-                            metadata_color = channel_data['metadata_color'].get()
-                            
-                            drawtext_filters.append(
-                                f"drawtext=text='':"  # ПУСТОЙ текст
-                                f"fontsize={metadata_size}:"
-                                f"fontcolor={metadata_color}:"
-                                f"box=1:"
-                                f"boxcolor=black@0.5:"
-                                f"boxborderw=8:"
-                                f"x=(w-text_w)/2:"
-                                f"y=(h-text_h)/2+{metadata_offset}"
-                            )
-                            
-                            global_filter_counter += 1
-                        
-                        # ⭐ ВРЕМЯ С БОКСОМ ЕСЛИ ВКЛЮЧЕНО ⭐
-                        if show_time:
-                            drawtext_filters.append(
-                                f"drawtext=text='%{{localtime\\:%X}}':"
-                                f"fontsize={time_size}:"
-                                f"fontcolor={time_color}:"
-                                f"box=1:"
-                                f"boxcolor=black@0.5:"
-                                f"boxborderw=8:"
-                                f"x=w-text_w-30:"
-                                f"y=30"
-                            )
-                            global_filter_counter += 1
-                        
-                        # Объединяем фильтры
-                        filter_complex = ','.join(drawtext_filters)
-                        
-                        # Уникальное имя для выходного потока
-                        output_label = f"[v{ch_num}]"
-                        
-                        # Определяем видео источник
-                        video_source_idx = None
-                        
-                        if bg_type == "Color":
-                            bg_color = channel_data['radio_bg_color'].get()
-                            source_key = f"color={bg_color}:s={resolution}"
-                            
-                            if source_key not in lavfi_sources:  # ← ТЕПЕРЬ lavfi_sources ДОСТУПНА
-                                cmd += f' -f lavfi -i "{source_key}:r=30"'
-                                lavfi_sources[source_key] = next_input_idx
-                                video_source_idx = next_input_idx
-                                next_input_idx += 1
-                            else:
-                                video_source_idx = lavfi_sources[source_key]
-                            
-                        else:  # Picture
-                            bg_picture = channel_data['radio_bg_picture'].get().strip()
-                            if bg_picture and os.path.exists(bg_picture):
-                                safe_picture_path = bg_picture.replace("\\", "/").replace('"', '\\"')
-                                cmd += f' -loop 1 -framerate 30 -i "{safe_picture_path}"'
-                                video_source_idx = next_input_idx
-                                next_input_idx += 1
-                            else:
-                                # Если картинка не найдена, используем черный фон
-                                source_key = f"color=black:s={resolution}"
-                                if source_key not in lavfi_sources:
-                                    cmd += f' -f lavfi -i "{source_key}:r=30"'
-                                    lavfi_sources[source_key] = next_input_idx
-                                    video_source_idx = next_input_idx
-                                    next_input_idx += 1
-                                else:
-                                    video_source_idx = lavfi_sources[source_key]
-                        
-                        # Сохраняем информацию о видео источнике
-                        if video_source_idx is not None:
-                            radio_video_sources[ch_num] = video_source_idx
-                        
-                        # Добавляем цепочку фильтров
-                        if video_source_idx is not None:
-                            video_filter = f"[{video_source_idx}:v]{filter_complex}{output_label}"
-                            filter_chains.append(video_filter)
-                        
-                        # Добавляем аудио URL
-                        cmd += f' -i "{url}"'
-                        
-                        # Маппим: фильтрованное видео с уникальным именем, аудио URL
-                        map_commands.append(f'-map {output_label}?')
-                        map_commands.append(f'-map {next_input_idx}:a?')
-                        
-                        channel_stream_map[ch_num] = [stream_counter, stream_counter + 1]
-                        stream_counter += 2
-                        
-                        next_input_idx += 1  # аудио URL
-                        
-                        self.log_message(f"  CH{ch_num}: Radio with metadata filter {self.channel_filter_indices.get(ch_num, 'N/A')}", "buffer")
-                    
-                    else:
-                        # ОБЫЧНЫЙ URL (не радио) - без изменений
-                        cmd += f' -i "{url}"'
-                        
-                        map_commands.append(f'-map {next_input_idx}:0?')
-                        map_commands.append(f'-map {next_input_idx}:1?')
-                        
-                        channel_stream_map[ch_num] = [stream_counter, stream_counter + 1]
-                        stream_counter += 2
-                        next_input_idx += 1
-            
-            elif source_type == "input_devices":
-                video_device = channel_data['video_device'].get()
-                audio_device = channel_data['audio_device'].get()
-                
-                if video_device:
-                    cmd += f' -thread_queue_size 2048 -itsoffset -0.65 -f dshow -thread_queue_size 10K -rtbufsize 400M -i "video={video_device}"'
-                    map_commands.append(f'-map {next_input_idx}:0?')
-                    next_input_idx += 1
-                    
-                    if audio_device:
-                        cmd += f' -f dshow -thread_queue_size 10K -rtbufsize 400M -i "audio={audio_device}"'
-                        map_commands.append(f'-map {next_input_idx}:0?')
-                        next_input_idx += 1
-                    
-                    channel_stream_map[ch_num] = [stream_counter, stream_counter + 1]
-                    stream_counter += 2
-                    
-                    self.log_message(f"  CH{ch_num}: Input Devices", "buffer")
-                    self.log_message(f"    Video input index: {next_input_idx-2 if audio_device else next_input_idx-1}", "buffer")
-                    if audio_device:
-                        self.log_message(f"    Audio input index: {next_input_idx-1}", "buffer")
-            
-            elif source_type == "media_folder":
-                media_path = channel_data['media_path'].get()
-                
-                if media_path and os.path.exists(media_path):
-                    list_file = self.create_media_playlist(ch_num, media_path)
-                    if list_file and os.path.exists(list_file):
-                        abs_path = os.path.abspath(list_file).replace("\\", "/")
-                        cmd += f' -f concat -safe 0 -stream_loop -1 -i "{abs_path}"'
-                        map_commands.append(f'-map {next_input_idx}:0?')
-                        map_commands.append(f'-map {next_input_idx}:1?')
-                        
-                        channel_stream_map[ch_num] = [stream_counter, stream_counter + 1]
-                        stream_counter += 2
-                        next_input_idx += 1
-                        
-                        self.log_message(f"  CH{ch_num}: Media Folder", "buffer")
-                        self.log_message(f"    Input index: {next_input_idx-1}", "buffer")
+        # 2. Метаданные (если включены)
+        if channel_data['show_metadata'].get():
+            metadata_filter = (
+                f"drawtext=text='Radio Station':"  # Пустой текст - будет обновляться через stdin
+                f"fontsize={channel_data['metadata_size'].get()}:"
+                f"fontcolor={channel_data['metadata_color'].get()}:"
+                f"box=1:"
+                f"boxcolor=black@0.5:"
+                f"boxborderw=8:"
+                f"x=(w-text_w)/2:"
+                f"y=(h-text_h)/2+{channel_data['metadata_position'].get()}"
+            )
+            filter_chains.append(metadata_filter)
+            filter_indices['metadata'] = filter_counter
+            filter_counter += 1
+            # self.log_message(f"DEBUG: CH{channel_num} - Metadata filter index: {filter_indices['metadata']}", "buffer")
         
-        # Добавляем filter_complex в конце
-        if filter_chains:
-            filter_complex_str = ';'.join(filter_chains)
-            cmd += f' -filter_complex "{filter_complex_str}"'
+        # 3. Время (если включено)
+        if channel_data['radio_show_time'].get():
+            time_filter = (
+                f"drawtext=text='%{{localtime\\:%X}}':"
+                f"fontsize={channel_data['radio_time_size'].get()}:"
+                f"fontcolor={channel_data['radio_time_color'].get()}:"
+                f"box=1:"
+                f"boxcolor=black@0.5:"
+                f"boxborderw=8:"
+                f"x=w-text_w-30:"
+                f"y=30"
+            )
+            filter_chains.append(time_filter)
+            filter_indices['time'] = filter_counter
+            filter_counter += 1
+            # self.log_message(f"DEBUG: CH{channel_num} - Time filter index: {filter_indices['time']}", "buffer")
         
-        # Если нет map, используем простую команду
-        if not map_commands:
-            self.log_message("ERROR: No valid input sources found!", "buffer")
-            return self.build_simple_ffmpeg_command()
+        # Сохраняем индексы в данных канала
+        channel_data['filter_indices'] = filter_indices
+        # self.log_message(f"DEBUG: CH{channel_num} - Filter indices saved: {filter_indices}", "buffer")
         
-        # Добавляем map команды
-        cmd += ' ' + ' '.join(map_commands)
+        # Объединяем фильтры
+        filter_complex = ','.join(filter_chains)
         
-        # Видео кодировщик
+        # Строим команду
+        cmd = f'"{ffmpeg_path}" -hwaccel auto -re '
+        
+        # Видео источник (фон)
+        if bg_type == "Color":
+            bg_color = channel_data['radio_bg_color'].get()
+            cmd += f'-f lavfi -i "color={bg_color}:s={resolution}:r={fps}" '
+            # self.log_message(f"DEBUG: CH{channel_num} - Background: Color {bg_color}", "buffer")
+        else:  # Picture
+            bg_picture = channel_data['radio_bg_picture'].get().strip()
+            if bg_picture and os.path.exists(bg_picture):
+                safe_path = os.path.abspath(bg_picture).replace('\\', '/')
+                cmd += f'-loop 1 -framerate {fps} -i "{safe_path}" '
+                # self.log_message(f"DEBUG: CH{channel_num} - Background: Picture {os.path.basename(bg_picture)}", "buffer")
+            else:
+                # Fallback на черный фон
+                cmd += f'-f lavfi -i "color=black:s={resolution}:r={fps}" '
+                # self.log_message(f"DEBUG: CH{channel_num} - Background: Fallback to black", "buffer")
+        
+        # Аудио источник (URL радио)
+        url = channel_data['url_input'].get().strip()
+        if url:
+            cmd += f'-timeout 2000000 -i "{url}" '
+            # self.log_message(f"DEBUG: CH{channel_num} - Audio URL: {url[:50]}...", "buffer")
+        
+        # Filter complex
+        cmd += f'-filter_complex "[0:v]{filter_complex}[vout]" '
+        # self.log_message(f"DEBUG: CH{channel_num} - Filter complex built", "buffer")
+        
+        # Получаем битрейты
+        video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
+        
+        # Параметры кодирования
         codec = self.video_codec.get()
         preset = self.video_preset.get()
         
+        cmd += f'-map "[vout]" -map 1:a? '
+        cmd += f'-vcodec {codec} -preset {preset} '
+        
         if codec == "libx265":
-            cmd += f' -vcodec libx265 -preset {preset}'
-            cmd += f' -x265-params "bitrate={video_per_channel}:vbv-maxrate={video_per_channel}:vbv-bufsize={video_per_channel//2}"'
+            cmd += f'-x265-params "bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}" '
         else:
-            cmd += f' -vcodec {codec} -preset {preset}'
-            cmd += f' -b:v {video_per_channel}k -minrate {video_per_channel}k -maxrate {video_per_channel}k -bufsize {video_per_channel//2}k'
+            cmd += f'-b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
         
-        cmd += f' -pix_fmt yuv420p -s {self.video_resolution.get()} -r {self.video_fps.get()}'
+        # Общие параметры
+        cmd += f'-pix_fmt yuv420p -s {resolution} -g {self.video_gop.get()} -aspect 16:9 -r {fps} '
+        cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
+        cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
         
-        # Аудио кодировщик
-        cmd += f' -c:a {self.audio_codec.get()}'
-        cmd += f' -b:a {audio_bitrate}'
-        cmd += f' -ar {self.audio_sample_rate.get()}'
-        cmd += f' -ac {self.get_audio_channels_ffmpeg()}'
+        # Метаданные
+        service_name = channel_data['name'].get() or f"Radio_{channel_num}"
+        safe_name = service_name.replace('"', '\\"')
+        cmd += f'-metadata service_provider="Radio Station" '
+        cmd += f'-metadata service_name="{safe_name}" '
         
-        # Добавляем программы в порядке каналов
-        for ch_num, channel_data in sorted_channels:
-            if ch_num in channel_stream_map:
-                streams = channel_stream_map[ch_num]
-                safe_name = channel_data['name'].get().replace('"', '\\"')
-                program_commands.append(f'-program title="{safe_name}":st={streams[0]}:st={streams[1]}')
-        
-        if program_commands:
-            cmd += ' ' + ' '.join(program_commands)
-        
-        # Добавляем movflags для быстрого старта
-        cmd += ' -movflags +faststart'
-        
-        # MPEG-TS параметры
-        cmd += ' ' + self.get_mpegts_output_params()
-        
-        # Отладка
-        self.log_message(f"=== Filter Index Summary ===", "buffer")
-        for ch_num, filter_index in self.channel_filter_indices.items():
-            self.log_message(f"CH{ch_num} -> filter Parsed_drawtext_{filter_index}", "buffer")
-        
+        # Выход
+        cmd += f'-f mpegts -flush_packets 0 '
+        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&fifo_size=500000&overrun_nonfatal=1"'
+        # self.log_message(f"CH{channel_num} Radio CMD: {cmd}", "buffer")
+        # self.log_message(f"DEBUG: CH{channel_num} - Command built successfully", "buffer")
         return cmd
+       
+    def restart_multiplexer(self):
+        """Restart main multiplexer process"""
+        if not self.is_streaming:
+            return
         
+        self.log_message("🔄 Restarting main multiplexer...", "buffer")
+        
+        # Убиваем старый процесс если есть
+        if self.main_multiplexer_process:
+            try:
+                self.kill_process_fast(self.main_multiplexer_process, "Old multiplexer")
+            except:
+                pass
+            self.main_multiplexer_process = None
+        
+        # Небольшая пауза
+        time.sleep(1)
+        
+        # Запускаем новый
+        self.start_main_multiplexer()
+
+    def monitor_multiplexer_output(self):
+        """Monitor main multiplexer output"""
+        if not self.main_multiplexer_process:
+            return
+        
+        critical_errors = [
+            'Error during demuxing: I/O error',
+            'Could not write header', 'sample rate not set', 'timeout',
+            'buffer overflow', 'Circular buffer overrun', 'muxing failed', 'Invalid argument'
+        ]
+        
+        try:
+            for line in iter(self.main_multiplexer_process.stdout.readline, ''):
+                if line and self.is_streaming:
+                    line_stripped = line.strip()
+                    
+                    # Проверка на критические ошибки
+                    error_detected = False
+                    for error in critical_errors:
+                        if error in line_stripped.lower():
+                            error_detected = True
+                            self.log_message(f"[Multiplexer] CRITICAL: {line_stripped[:200]}", "buffer")
+                            break
+                    
+                    if error_detected:
+                        # Перезапускаем мультиплексор
+                        self.log_message("🔄 Restarting multiplexer due to error", "buffer")
+                        self.restart_multiplexer()
+                        return
+                    
+                    # Логирование обычных ошибок
+                    if any(word in line_stripped.lower() for word in ['warning', 'deprecated']):
+                        self.log_message(f"[Multiplexer] {line_stripped[:100]}", "buffer")
+                    
+                    # Парсинг статистики
+                    if "bitrate=" in line_stripped:
+                        match = re.search(r'bitrate=\s*([\d.]+)\s*kbits/s', line_stripped)
+                        if match:
+                            self.root.after(0, self.encoder_bitrate.set, match.group(1))
+                    
+                    if "speed=" in line_stripped:
+                        match = re.search(r'speed=\s*([\d.]+)x', line_stripped)
+                        if match:
+                            self.root.after(0, self.encoder_speed.set, match.group(1))
+                            self.root.after(0, self.update_speed_color)
+                            # ⭐ ДОЛЖЕН БЫТЬ ВЫЗОВ check_system_speed
+                            try:
+                                speed = float(match.group(1))
+                                self.root.after(0, self.check_system_speed, speed)
+                            except:
+                                pass
+                                
+        except Exception as e:
+            if self.is_streaming:
+                self.log_message(f"Multiplexer monitor error: {e}", "buffer")
+        
+        # Проверка, не упал ли процесс
+        if self.main_multiplexer_process and self.main_multiplexer_process.poll() is not None:
+            return_code = self.main_multiplexer_process.poll()
+            if return_code != 0 and self.is_streaming:
+                self.log_message(f"Multiplexer crashed with code {return_code}, restarting...", "buffer")
+                self.restart_multiplexer()
+                       
+    def update_radio_metadata_new(self):
+        """Простая версия - только логирование и планирование"""
+        if not self.is_streaming:
+            self.log_message("[METADATA] Not streaming, skipping", "buffer")
+            return
+        
+        # Просто считаем радио-каналы
+        radio_count = 0
+        for ch_num, info in self.channel_processes.items():
+            if info.get('is_radio'):
+                radio_count += 1
+        
+        if radio_count > 0:
+            # Запускаем обновление для каждого канала
+            for ch_num, info in self.channel_processes.items():
+                if info.get('is_radio'):
+                    # ⚠️ ДОБАВЛЕНО: проверяем что канал ACTIVE
+                    if self.channel_states.get(ch_num) == self.CHANNEL_STATE_ACTIVE:
+                        # Запускаем в отдельном потоке
+                        threading.Thread(
+                            target=self.update_channel_metadata_simple,
+                            args=(ch_num,),
+                            daemon=True
+                        ).start()
+                    else:
+                        self.log_message(f"[METADATA] CH{ch_num}: skipping (state={self.channel_states.get(ch_num)})", "buffer")
+        
+        # Планируем следующий цикл
+        if self.is_streaming:
+            next_time = 20000  # 20 секунд
+            self.root.after(next_time, self.update_radio_metadata_new)
+
+    def update_channel_metadata_simple(self, channel_num):
+        """Обновление метаданных с динамическим размером текста (как в старом коде)"""
+        self.log_message("[METADATA] test for grab_window0", "buffer")
+        try:
+            # 1. Получаем данные канала
+            channel_data = self.multiplex_channels.get(channel_num)
+            if not channel_data:
+                return
+
+            # ⭐ Защита: только для URL_Input с радио
+            if not (channel_data['source_type'].get() == "URL_Input" and channel_data['is_radio'].get()):
+                return
+            
+            # 2. Проверяем, включены ли метаданные
+            if not channel_data.get('show_metadata', True):
+                return
+            
+            # 3. Получаем URL
+            url = channel_data['url_input'].get().strip()
+            if not url:
+                self.log_message("[METADATA] test for grab_window1", "buffer")
+                return
+            
+            # 4. Парсим метаданные
+            station, track = self.parse_metadata_from_url(url)
+            
+            if not station:
+                station = channel_data['radio_text'].get() or "Radio Station"
+            if not track:
+                track = "No track info"
+            
+            display_text = f"{station} | {track}"
+            
+            # 5. Проверяем изменения
+            last_key = f"last_metadata_ch{channel_num}"  # ← ИСПРАВЛЕНО: last_key, а не last_text_key
+            last_text = getattr(self, last_key, "")
+            
+            if display_text == last_text:
+                return  # Данные не изменились
+            
+            # 6. Получаем процесс и stdin
+            if channel_num not in self.channel_processes:
+                return
+            
+            process_info = self.channel_processes[channel_num]
+            stdin = process_info.get('stdin')
+            if not stdin:
+                return
+            
+            # 7. Получаем индекс фильтра
+            filter_indices = channel_data.get('filter_indices', {})
+            metadata_idx = filter_indices.get('metadata')
+            if metadata_idx is None:
+                return
+            
+            # ⭐ 8. ЛОГИКА ИЗ СТАРОГО КОДА: АВТОМАТИЧЕСКИЙ ПОДБОР РАЗМЕРА ШРИФТА
+            
+            # Базовый размер шрифта из настроек
+            try:
+                base_fontsize = int(channel_data['metadata_size'].get())
+            except:
+                base_fontsize = 40  # Значение по умолчанию
+            
+            # 8.1. Ограничиваем длину текста если слишком длинный
+            max_chars = 100  # Максимальная длина текста
+            if len(display_text) > max_chars:
+                # Обрезаем и добавляем многоточие
+                # Стараемся обрезать по границе слова
+                cutoff = display_text[:max_chars-3].rfind(' ')
+                if cutoff > max_chars // 2:  # Если нашли хорошее место
+                    display_text = display_text[:cutoff] + "..."
+                else:
+                    display_text = display_text[:max_chars-3] + "..."
+            
+            # 8.2. Подбираем размер шрифта в зависимости от длины текста
+            text_length = len(display_text)
+            
+            if text_length > 100:
+                fontsize = int(base_fontsize * 0.7)    # Уменьшаем на 30%
+            elif text_length > 90:
+                fontsize = int(base_fontsize * 0.75)   # Уменьшаем на 25%
+            elif text_length > 80:
+                fontsize = int(base_fontsize * 0.8)    # Уменьшаем на 20%
+            elif text_length > 70:
+                fontsize = int(base_fontsize * 0.85)   # Уменьшаем на 15%
+            elif text_length > 60:
+                fontsize = int(base_fontsize * 0.9)    # Уменьшаем на 10%
+            else:
+                fontsize = base_fontsize               # Оригинальный размер
+            
+            # Минимальный размер шрифта
+            fontsize = max(fontsize, 20)
+            # Максимальный размер (не больше оригинального)
+            fontsize = min(fontsize, base_fontsize)
+            
+            # ⭐ 9. Экранируем специальные символы (как в старом коде)
+            safe_text = display_text.replace("'", "'\\''").replace(':', '\\:')
+            
+            # ⭐ 10. ФОРМИРУЕМ КОМАНДУ С ПРАВИЛЬНЫМ СИНТАКСИСОМ
+            # Как в старом коде: text='текст':fontsize=размер
+            command = f"CParsed_drawtext_{metadata_idx} 0.0 reinit text='{safe_text}':fontsize={fontsize}\n"
+            
+            # 11. Отправляем команду
+            try:
+                stdin.write(command)
+                stdin.flush()
+                
+                # Сохраняем последний отправленный текст
+                setattr(self, last_key, display_text)  # ← Используем last_key
+                
+                # Логируем (как в старом коде)
+                # self.log_message(
+                    # f"Updated CH{channel_num} (filter {metadata_idx}, font {fontsize}px): {display_text[:60]}...",
+                    # "buffer"
+                # )
+                
+            except BrokenPipeError:
+                self.log_message(f"FFmpeg process pipe closed for CH{channel_num}", "buffer")
+            except Exception as e:
+                if "I/O operation on closed file" in str(e):
+                    self.log_message(f"FFmpeg stdin closed for CH{channel_num}", "buffer")
+                else:
+                    self.log_message(f"Error sending command to FFmpeg CH{channel_num}: {str(e)[:80]}", "buffer")
+                    
+        except Exception as e:
+            self.log_message(f"Metadata update error CH{channel_num}: {str(e)[:100]}", "buffer")
+                                                                     
     def update_ffmpeg_command_preview(self):
         """Update FFmpeg command preview"""
         try:
@@ -9970,17 +11171,17 @@ class DVBT2EncoderGUI:
             self.on_video_bitrate_change()
             
             # Логируем расчеты для отладки
-            self.log_message(f"MULTIPLEX mode calculation:", "buffer")
-            self.log_message(f"  Active channels: {active_count}", "buffer")
-            self.log_message(f"  Original video bitrate: {total_video_bitrate}k", "buffer")
-            self.log_message(f"  Audio bitrate per channel: {total_audio_bitrate_kbps}k", "buffer")
-            self.log_message(f"  Total audio for all channels: {total_audio_for_all_channels}k", "buffer")
+            # self.log_message(f"MULTIPLEX mode calculation:", "buffer")
+            # self.log_message(f"  Active channels: {active_count}", "buffer")
+            # self.log_message(f"  Original video bitrate: {total_video_bitrate}k", "buffer")
+            # self.log_message(f"  Audio bitrate per channel: {total_audio_bitrate_kbps}k", "buffer")
+            # self.log_message(f"  Total audio for all channels: {total_audio_for_all_channels}k", "buffer")
             
-            if 'available_total_bitrate' in locals():
-                self.log_message(f"  Available total bitrate (after 10% reserve): {available_total_bitrate:.1f}k", "buffer")
-                self.log_message(f"  Available video after audio: {available_video_after_audio:.1f}k", "buffer")
-                self.log_message(f"  Total required bitrate: {total_required_bitrate:.1f}k", "buffer")
-                self.log_message(f"  Bitrate headroom: {available_total_bitrate - total_required_bitrate:.1f}k", "buffer")
+            # if 'available_total_bitrate' in locals():
+                # self.log_message(f"  Available total bitrate (after 10% reserve): {available_total_bitrate:.1f}k", "buffer")
+                # self.log_message(f"  Available video after audio: {available_video_after_audio:.1f}k", "buffer")
+                # self.log_message(f"  Total required bitrate: {total_required_bitrate:.1f}k", "buffer")
+                # self.log_message(f"  Bitrate headroom: {available_total_bitrate - total_required_bitrate:.1f}k", "buffer")
             
             self.log_message(f"  Result: Video={video_per_channel}k per channel, Audio={audio_bitrate_output} per channel", "buffer")
             
@@ -10008,7 +11209,7 @@ class DVBT2EncoderGUI:
         else:
             params += f'-b:v {bitrate_per_channel}k -minrate {bitrate_per_channel}k -maxrate {bitrate_per_channel}k -bufsize {bitrate_per_channel//2}k '
         
-        params += f'-pix_fmt yuv420p -s {self.video_resolution.get()} -r {self.video_fps.get()} '
+        params += f'-pix_fmt yuv420p -s {self.video_resolution.get()} -g {self.video_gop.get()} -aspect 16:9 -r {self.video_fps.get()} '
         
         return params
 
@@ -10024,17 +11225,69 @@ class DVBT2EncoderGUI:
             f'-metadata service_provider="{self.service_provider.get()}" '
             f'-metadata service_name="{self.service_name.get()}" '
             f'-flush_packets 0 -muxrate {self.muxrate.get()} '
-            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&fifo_size=5000000&overrun_nonfatal=1&burst_bits=1"'
+            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&fifo_size=500000&overrun_nonfatal=1&burst_bits=1"'
         )
+        
     def show_multiplex_ffmpeg_command(self):
         """Display the multiplex FFmpeg command"""
         try:
+            # Получаем основную команду
             cmd = self.build_ffmpeg_command()
             
+            # Собираем полный текст
+            full_text = cmd + "\n\n" + "="*80 + "\n"
+            full_text += "EMERGENCY STREAM COMMAND:\n"
+            full_text += "="*80 + "\n\n"
+            
+            # 1. Основная emergency команда
+            emergency_file = self.emergency_file_path.get()
+            if emergency_file and os.path.exists(emergency_file):
+                # Получаем битрейты
+                video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
+                
+                ffmpeg_path = self.find_ffmpeg()
+                safe_path = os.path.abspath(emergency_file).replace('\\', '/')
+                
+                emergency_cmd = f'"{ffmpeg_path}" -hwaccel auto -re -stream_loop -1 '
+                emergency_cmd += f'-i "{safe_path}" '
+                emergency_cmd += f'-vcodec {self.video_codec.get()} -preset {self.video_preset.get()} '
+                
+                if self.video_codec.get() == "libx265":
+                    emergency_cmd += f'-x265-params "bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}" '
+                else:
+                    emergency_cmd += f'-b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
+                
+                emergency_cmd += f'-pix_fmt yuv420p -s {self.video_resolution.get()} -g {self.video_gop.get()} -aspect 16:9 -r {self.video_fps.get()} '
+                emergency_cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
+                emergency_cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
+                emergency_cmd += f'-metadata service_provider="EMERGENCY" '
+                emergency_cmd += f'-metadata service_name="Emergency Stream" '
+                emergency_cmd += f'-f mpegts "{self.emergency_stream_url}?pkt_size=1316&fifo_size=500000&overrun_nonfatal=1"'
+                
+                full_text += emergency_cmd + "\n\n"
+            else:
+                full_text += "No emergency file configured or file not found\n"
+                full_text += f"Current path: {emergency_file}\n\n"
+            
+            # # 2. EMERGENCY PROXY COMMANDS для каждого активного канала
+            # full_text += "="*80 + "\n"
+            # full_text += "EMERGENCY PROXY COMMANDS (for channel replacement):\n"
+            # full_text += "="*80 + "\n\n"
+            
+            ffmpeg_path = self.find_ffmpeg()
+            active_channels = 0
+            
+            for ch_num, channel_data in self.multiplex_channels.items():
+                if not channel_data['enabled'].get():
+                    continue
+                    
+                active_channels += 1
+                output_port = self.base_multicast_port + ch_num - 1
+                            
             # Создаем отдельное окно с полосой прокрутки
             cmd_window = tk.Toplevel(self.root)
-            cmd_window.title("FFmpeg Command")
-            cmd_window.geometry("800x600")
+            cmd_window.title("FFmpeg Commands (Main + Emergency)")
+            cmd_window.geometry("900x700")  # Немного больше для длинных команд
             
             # Текстовая область с прокруткой
             text_frame = ttk.Frame(cmd_window)
@@ -10048,17 +11301,39 @@ class DVBT2EncoderGUI:
             scrollbar.pack(side='right', fill='y')
             
             # Вставляем команду
-            text_widget.insert(1.0, cmd)
+            text_widget.insert(1.0, full_text)
             text_widget.configure(state='disabled')  # Только для чтения
             
             # Кнопка копирования
             copy_btn = ttk.Button(cmd_window, text="Copy to Clipboard", 
-                                 command=lambda: self.copy_to_clipboard(cmd))
+                                 command=lambda: self.copy_to_clipboard(full_text))
             copy_btn.pack(pady=(0, 10))
             
         except Exception as e:
             self.log_message(f"Error showing command: {e}", "buffer")
-            messagebox.showerror("Error", f"Error building FFmpeg command:\n{str(e)}")
+            messagebox.showerror("Error", f"Error building FFmpeg command:\n{str(e)}") 
+            
+    def browse_emergency_file(self):
+        """Browse for emergency video file"""
+        filename = filedialog.askopenfilename(
+            title="Select emergency video file",
+            filetypes=[
+                ("Video files", "*.mp4 *.avi *.mkv *.mov *.flv *.ts *.m2ts *.m4v"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if filename:
+            print(f"DEBUG: Selected file: {filename}")
+            print(f"DEBUG: Before set: '{self.emergency_file_path.get()}'")
+            self.emergency_file_path.set(filename)
+            print(f"DEBUG: After set: '{self.emergency_file_path.get()}'")
+            self.save_config()
+            print(f"DEBUG: Config saved")        
+        
+        if filename:
+            self.emergency_file_path.set(filename)
+            self.save_config()            
 
     def copy_to_clipboard(self, text):
         """Copy text to clipboard"""
