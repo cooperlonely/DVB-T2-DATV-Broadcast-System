@@ -41,6 +41,7 @@ class DVBTTipsWindow:
     def __init__(self, parent):
         self.parent = parent
         self.window = None
+        self.current_language = "English"  # По умолчанию английский
         
     def show(self):
         """Show the tips window"""
@@ -64,33 +65,65 @@ class DVBTTipsWindow:
             
         except Exception as e:
             print(f"Error creating tips window: {e}")
+            
+    def on_language_change(self, event=None):
+        """Handle language change"""
+        try:
+            self.current_language = self.language_var.get()
+            # Обновляем все содержимое окна
+            self.create_content()
+            # Обновляем анализ с новым языком
+            self.update_analysis()
+        except Exception as e:
+            print(f"Error changing language: {e}")            
         
     def create_content(self):
         """Create window content with better layout"""
-        # Main frame with paned window for better space usage
-        main_paned = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
-        main_paned.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        # Left pane - Analysis and Quick Tips
-        left_frame = ttk.Frame(main_paned)
-        main_paned.add(left_frame, weight=1)
-        
-        # Right pane - Detailed Guides
-        right_frame = ttk.Frame(main_paned)
-        main_paned.add(right_frame, weight=1)
-        
-        # Left content
-        self.create_left_content(left_frame)
-        
-        # Right content  
-        self.create_right_content_with_math(right_frame)  # Изменено название
+        try:
+            # Clear existing content if any
+            for widget in self.window.winfo_children():
+                widget.destroy()
+            
+            # Main frame with paned window for better space usage
+            main_paned = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
+            main_paned.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # Left pane - Analysis and Quick Tips
+            left_frame = ttk.Frame(main_paned)
+            main_paned.add(left_frame, weight=1)
+            
+            # Right pane - Detailed Guides
+            right_frame = ttk.Frame(main_paned)
+            main_paned.add(right_frame, weight=1)
+            
+            # Left content
+            self.create_left_content(left_frame)
+            
+            # Right content
+            self.create_right_content(right_frame)
+            
+        except Exception as e:
+            print(f"Error creating content: {e}")
         
     def create_left_content(self, parent):
         """Create left pane content - Analysis and Quick Tips"""
-        # Current Status - более компактно
-        status_frame = ttk.LabelFrame(parent, text="🔍 Current Configuration Analysis", padding="10")
-        status_frame.pack(fill='x', pady=(0, 10))
+        # Language selection frame - НОВЫЙ!
+        lang_frame = ttk.Frame(parent)
+        lang_frame.pack(fill='x', pady=(0, 5))
         
+        ttk.Label(lang_frame, text="Language:", font=('Arial', 9)).pack(side='left', padx=(0, 5))
+        
+        self.language_var = tk.StringVar(value=self.current_language)
+        language_combo = ttk.Combobox(lang_frame, textvariable=self.language_var,
+                                     values=["English", "Russian"], state="readonly",
+                                     width=10)
+        language_combo.pack(side='left')
+        language_combo.bind('<<ComboboxSelected>>', self.on_language_change)
+        
+        # Current Status
+        status_frame = ttk.LabelFrame(parent, text="🔍 Current Configuration Analysis" if self.current_language == "English" else "🔍 Анализ текущей конфигурации", padding="10")
+        status_frame.pack(fill='x', pady=(0, 10))
+                
         # Status labels в две колонки
         status_grid = ttk.Frame(status_frame)
         status_grid.pack(fill='x')
@@ -119,12 +152,20 @@ class DVBTTipsWindow:
                                        font=('Arial', 9), fg='black', justify='left')
         self.robustness_label.pack(anchor='w', pady=2)
         
-        # Update button
-        ttk.Button(status_frame, text="🔄 Update Analysis", 
-                  command=self.update_analysis, width=20).pack(pady=(10, 0))
+        # Update button frame с языком
+        button_frame = ttk.Frame(status_frame)
+        button_frame.pack(fill='x', pady=(10, 0))
+        
+        # Кнопка Update Analysis
+        self.update_btn = ttk.Button(button_frame, text="🔄 Update Analysis" if self.current_language == "English" else "🔄 Обновить анализ", 
+                                     command=self.update_analysis)
+        self.update_btn.pack(side='left')
+        
+        # Метка с текущим языком (опционально)
+        ttk.Label(button_frame, text=f"({self.current_language})", font=('Arial', 8)).pack(side='right', padx=(5, 0))
         
         # Recommendations - более компактно
-        rec_frame = ttk.LabelFrame(parent, text="🎯 Key Recommendations", padding="8")
+        rec_frame = ttk.LabelFrame(parent, text="🎯 Key Recommendations" if self.current_language == "English" else "🎯 Ключевые рекомендации", padding="8")
         rec_frame.pack(fill='x', pady=(0, 10))
         
         rec_text = """• Frame Time: 150-220 ms (optimal)
@@ -166,12 +207,19 @@ class DVBTTipsWindow:
                              justify='left', bg='#F0F8FF')
         rules_label.pack(fill='x', padx=5, pady=5)
     
-    def create_right_content_with_math(self, parent):
-        """Create right pane content with mathematical framework"""
+    def create_right_content(self, parent):
+        """Create right pane content with language support"""
         # Create notebook for detailed guides
         notebook = ttk.Notebook(parent)
         notebook.pack(fill='both', expand=True)
         
+        if self.current_language == "English":
+            self._create_english_tabs(notebook)
+        else:
+            self._create_russian_tabs(notebook)
+    
+    def _create_english_tabs(self, notebook):
+        """Create tabs in English"""
         # Tab 1: Modulation Guide
         mod_frame = ttk.Frame(notebook, padding="10")
         notebook.add(mod_frame, text="Modulation")
@@ -201,10 +249,7 @@ class DVBTTipsWindow:
    • Use case: Maximum speed
    • Best for: Excellent conditions
 """
-        mod_text = tk.Text(mod_frame, wrap=tk.WORD, font=('Arial', 9), height=20)
-        mod_text.insert('1.0', mod_content)
-        mod_text.config(state='disabled')
-        mod_text.pack(fill='both', expand=True)
+        self._add_text_to_frame(mod_frame, mod_content)
         
         # Tab 2: FFT & GI Guide
         fft_frame = ttk.Frame(notebook, padding="10")
@@ -250,10 +295,7 @@ class DVBTTipsWindow:
   - Use: Challenging conditions
   - Max delay: ~25 μs
 """
-        fft_text = tk.Text(fft_frame, wrap=tk.WORD, font=('Arial', 9), height=20)
-        fft_text.insert('1.0', fft_content)
-        fft_text.config(state='disabled')
-        fft_text.pack(fill='both', expand=True)
+        self._add_text_to_frame(fft_frame, fft_content)
         
         # Tab 3: Code Rates
         code_frame = ttk.Frame(notebook, padding="10")
@@ -303,10 +345,7 @@ Code Rate = Data Bits / Total Bits
 • Urban: 16QAM + 3/4 FEC
 • Mobile: QPSK + 2/3 FEC
 """
-        code_text = tk.Text(code_frame, wrap=tk.WORD, font=('Arial', 9), height=20)
-        code_text.insert('1.0', code_content)
-        code_text.config(state='disabled')
-        code_text.pack(fill='both', expand=True)
+        self._add_text_to_frame(code_frame, code_content)
         
         # Tab 4: Frame Structure
         frame_frame = ttk.Frame(notebook, padding="10")
@@ -351,7 +390,6 @@ Fewer Symbols →
   - Stable conditions
   - Maximize robustness
 
-
 🎯 CALCULATION TIPS:
 
 1. Start with target Frame Time (180 ms)
@@ -360,109 +398,107 @@ Fewer Symbols →
 4. Verify total bitrate meets needs
 5. Test different FEC combinations
 """
-        frame_text = tk.Text(frame_frame, wrap=tk.WORD, font=('Arial', 9), height=20)
-        frame_text.insert('1.0', frame_content)
-        frame_text.config(state='disabled')
-        frame_text.pack(fill='both', expand=True)
-        # НОВАЯ ВКЛАДКА: DVB-T2 Specifications
+        self._add_text_to_frame(frame_frame, frame_content)
+        
+        # Tab 5: DVB-T2 Specifications
         spec_frame = ttk.Frame(notebook, padding="10")
         notebook.add(spec_frame, text="DVB-T2 Specifications")
         
         spec_content = """
-🚫 ОБЯЗАТЕЛЬНЫЕ ОГРАНИЧЕНИЯ DVB-T2
+🚫 DVB-T2 MANDATORY RESTRICTIONS
+📚 Source: ETSI EN 302 755 (official DVB-T2 standard)
+📊 Data verified against Keysight Technologies DVB-T2 X-parameters measurement guide
 
 📊 FFT SIZE COMPATIBILITY:
 
 • 1K FFT: 
-  - НЕ поддерживает: PP6, PP7, PP8
-  - Макс. Data Symbols: 256
-  - Guard Interval: 1/4, 19/128, 19/256, 1/32, 1/16, 1/8
+  - NOT supported: PP6, PP7, PP8
+  - Max Data Symbols: 256
+  - Guard Interval: 1/4, 1/8, 1/16
+  - Note: 1/32, 1/128, 19/256, 19/128 not available
 
 • 2K FFT:
-  - НЕ поддерживает: PP6, PP8  
-  - Макс. Data Symbols: 512
-  - Guard Interval: 1/4, 19/128, 19/256, 1/32, 1/16, 1/8
+  - NOT supported: PP6, PP8  
+  - Max Data Symbols: 512
+  - Guard Interval: 1/4, 1/8, 1/16, 1/32
+  - Note: 1/128, 19/256, 19/128 not available
 
 • 4K FFT:
-  - НЕ поддерживает: PP6, PP8
-  - Макс. Data Symbols: 1024
-  - Guard Interval: 1/4, 19/128, 19/256, 1/32, 1/16, 1/8
+  - NOT supported: PP6, PP8
+  - Max Data Symbols: 1024
+  - Guard Interval: 1/4, 1/8, 1/16, 1/32
+  - Note: 1/128, 19/256, 19/128 not available
 
 • 8K FFT:
-  - Поддерживает все PP (1-8)
-  - Макс. Data Symbols: 2048
-  - Guard Interval: все
+  - Supports all PP (1-8)
+  - Max Data Symbols: 2048
+  - Guard Interval: all (including 1/128, 19/128, 19/256)
 
 • 16K FFT:
-  - Поддерживает все PP (1-8)
-  - Макс. Data Symbols: 4096
-  - Guard Interval: все
+  - Supports all PP (1-8)
+  - Max Data Symbols: 4096
+  - Guard Interval: all (including 1/128, 19/128, 19/256)
 
 • 32K FFT:
-  - Поддерживает все PP (1-8)
-  - Макс. Data Symbols: 8192
-  - Guard Interval: все (кроме 1/128)
+  - Supports all PP (1-8)
+  - Max Data Symbols: 8192
+  - Guard Interval: all (including 1/128, 19/128, 19/256)
 
-🛡️ PILOT PATTERN RESTRICTIONS:
+🛡️ PILOT PATTERN RESTRICTIONS (ETSI EN 302 755 Table 39):
 
-PP1: Все FFT, все GI
-PP2: Все FFT, НЕ совместим с GI 1/16 и 19/128
-PP3: Все FFT, все GI  
-PP4: Все FFT, НЕ совместим с GI 1/32
-PP5: Все FFT, все GI
-PP6: Только 8K/16K/32K FFT, все GI
-PP7: Только 8K/16K/32K FFT, НЕ совместим с GI 1/128
-PP8: Только 8K/16K/32K FFT, все GI
+PP1: All FFT, all GI (except 1/128)
+PP2: All FFT, GI: 1/8, 1/4, 19/128 for 8K/16K/32K
+PP3: All FFT, GI: 1/8, 19/128 for 8K/16K/32K
+PP4: All FFT, GI: 1/16, 1/32, 19/256
+PP5: All FFT, GI: 1/16, 19/256
+PP6: Only 8K/16K/32K FFT, GI: 1/32
+PP7: Only 8K/16K/32K FFT, GI: 1/128
+PP8: Only 8K/16K/32K FFT, GI: 1/4, 1/8, 1/16, 19/128, 19/256
 
-⏱️ GUARD INTERVAL LIMITS:
+✅ STANDARD COMPLIANT COMBINATIONS:
 
-GI 1/32: НЕ совместим с PP4
-GI 1/16: НЕ совместим с PP2
-GI 1/8:  Все PP
-GI 1/4:  Все PP
-GI 1/128: НЕ совместим с PP7
-GI 19/128: НЕ совместим с PP2
-GI 19/256: Все PP
+32K FFT:
+• GI 1/128 → PP7
+• GI 1/32 → PP4, PP6
+• GI 1/16 → PP2, PP8
+• GI 19/256 → PP2, PP8
+• GI 1/8 → PP2, PP8
+• GI 19/128 → PP2, PP8
+• GI 1/4 → PP2, PP8
 
-🎯 RECOMMENDED VALID COMBINATIONS:
+16K FFT:
+• GI 1/128 → PP7
+• GI 1/32 → PP7, PP4, PP6
+• GI 1/16 → PP2, PP8, PP4, PP5
+• GI 19/256 → PP2, PP8, PP4, PP5
+• GI 1/8 → PP2, PP3, PP8
+• GI 19/128 → PP2, PP3, PP8
+• GI 1/4 → PP1, PP8
 
-✅ УНИВЕРСАЛЬНЫЕ (все приемники):
-• 8K FFT, PP3, GI 1/8, 16QAM 2/3
-• 8K FFT, PP5, GI 1/8, 64QAM 3/4
-• 16K FFT, PP2, GI 1/4, QPSK 1/2
+8K FFT:
+• GI 1/128 → PP7
+• GI 1/32 → PP7, PP4
+• GI 1/16 → PP8, PP4, PP5
+• GI 19/256 → PP8, PP4, PP5
+• GI 1/8 → PP2, PP3, PP8
+• GI 19/128 → PP2, PP3, PP8
+• GI 1/4 → PP1, PP8
 
-✅ МАКСИМАЛЬНАЯ ДАЛЬНОСТЬ:
-• 32K FFT, PP1, GI 1/4, QPSK 1/2
-• 16K FFT, PP1, GI 1/4, QPSK 1/2
+⚠️ CRITICAL RULES FROM STANDARD:
 
-✅ ВЫСОКАЯ СКОРОСТЬ:
-• 32K FFT, PP7, GI 1/16, 256QAM 5/6
-• 16K FFT, PP7, GI 1/16, 64QAM 5/6
-
-✅ МОБИЛЬНЫЕ УСТРОЙСТВА:
-• 4K FFT, PP4, GI 1/8, 16QAM 2/3
-• 2K FFT, PP3, GI 1/8, QPSK 2/3
-
-⚠️ КРИТИЧЕСКИЕ ПРАВИЛА:
-
-1. Frame Time (TF) < 250 ms
-2. Dummy Cells ≥ 0
-3. FFT и PP должны быть совместимы
-4. PP и GI должны быть совместимы
-5. Data Symbols ≤ Max для выбранного FFT
-6. FEC Blocks ≤ Max для выбранной схемы
+1. Frame Time (TF) < 250 ms (EN 302 755 Section 9.4)
+2. Dummy Cells ≥ 0 (must be positive for valid configuration)
+3. OBW ≤ Channel Bandwidth (occupied bandwidth must fit in channel)
+4. T_G ≤ T_E (guard interval must not exceed pilot pattern capability)
 """
-        spec_text = tk.Text(spec_frame, wrap=tk.WORD, font=('Arial', 8), height=20)
-        spec_text.insert('1.0', spec_content)
-        spec_text.config(state='disabled')
-        spec_text.pack(fill='both', expand=True)
-
-        # НОВАЯ ВКЛАДКА: Mathematical Framework
+        self._add_text_to_frame(spec_frame, spec_content)
+        
+        # Tab 6: Mathematical Framework
         math_frame = ttk.Frame(notebook, padding="10")
         notebook.add(math_frame, text="DVB-T2 Math")
         
         math_content = """
-🎯 MATHEMATICAL FRAMEWORK DVB-T2
+🎯 DVB-T2 MATHEMATICAL FRAMEWORK
 
 📊 BASIC FORMULAS & CONSTANTS
 
@@ -534,12 +570,370 @@ For stable SFN operation, Guard Interval must be covered by Pilot Pattern capabi
 
 ✅ The calculator automatically validates these constraints!
 """
-        math_text = tk.Text(math_frame, wrap=tk.WORD, font=('Courier', 8), height=25)
-        math_text.insert('1.0', math_content)
-        math_text.config(state='disabled')
-        math_text.pack(fill='both', expand=True)        
-        
+        self._add_text_to_frame(math_frame, math_content)
     
+    def _create_russian_tabs(self, notebook):
+        """Create tabs in Russian"""
+        # Вкладка 1: Модуляция
+        mod_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(mod_frame, text="Модуляция")
+        
+        mod_content = """
+🔸 QPSK (Квадратурная фазовая манипуляция)
+   • Бит на символ: 2
+   • Требуемое ОСШ: Низкое (6-10 дБ)
+   • Применение: Максимальная дальность, слабые сигналы
+   • Лучше всего: Сельская местность, большое расстояние
+
+🔸 16QAM (16-позиционная квадратурная амплитудная модуляция)
+   • Бит на символ: 4
+   • Требуемое ОСШ: Среднее (12-16 дБ)
+   • Применение: Сбалансированная производительность
+   • Лучше всего: Большинство применений
+
+🔸 64QAM (64-позиционная квадратурная амплитудная модуляция)
+   • Бит на символ: 6
+   • Требуемое ОСШ: Высокое (18-22 дБ)
+   • Применение: Высокая скорость
+   • Лучше всего: Зоны с сильным сигналом
+
+🔸 256QAM+ (Модуляция высокого порядка)
+   • Бит на символ: 8+
+   • Требуемое ОСШ: Очень высокое (24+ дБ)
+   • Применение: Максимальная скорость
+   • Лучше всего: Отличные условия приема
+"""
+        self._add_text_to_frame(mod_frame, mod_content)
+        
+        # Вкладка 2: FFT и Защитный интервал
+        fft_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(fft_frame, text="FFT и ЗИ")
+        
+        fft_content = """
+📏 РАЗМЕР FFT (Быстрое преобразование Фурье)
+
+• 1K (1024 точки)
+  - Лучше всего: Мобильный прием
+  - Плюсы: Быстрая адаптация к изменениям канала
+  - Минусы: Слабая устойчивость к многолучевости
+
+• 2K-8K (2048-8192 точки)
+  - Лучше всего: Стандартный стационарный прием
+  - Плюсы: Хороший баланс
+  - Минусы: Средняя устойчивость к многолучевости
+
+• 16K-32K (16384-32768 точки)
+  - Лучше всего: Сложные условия приема
+  - Плюсы: Отличная устойчивость к многолучевости
+  - Минусы: Медленная адаптация к изменениям канала
+
+🛡️ ЗАЩИТНЫЙ ИНТЕРВАЛ (Циклический префикс)
+
+• 1/32 (3.125% служебных данных)
+  - Защита: Минимальная
+  - Применение: Зоны с сильным сигналом
+  - Макс. задержка: ~3 мкс
+
+• 1/16 (6.25% служебных данных)
+  - Защита: Низкая
+  - Применение: Хорошие условия
+  - Макс. задержка: ~6 мкс
+
+• 1/8 (12.5% служебных данных)
+  - Защита: Хорошая
+  - Применение: Большинство сценариев (рекомендуется)
+  - Макс. задержка: ~12 мкс
+
+• 1/4 (25% служебных данных)
+  - Защита: Максимальная
+  - Применение: Сложные условия
+  - Макс. задержка: ~25 мкс
+"""
+        self._add_text_to_frame(fft_frame, fft_content)
+        
+        # Вкладка 3: Кодовые скорости
+        code_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(code_frame, text="Кодовые скорости")
+        
+        code_content = """
+📊 КОРРЕКЦИЯ ОШИБОК (FEC)
+
+Кодовая скорость = Биты данных / Всего битов
+(Меньше скорость = Больше защиты = Меньше скорость передачи)
+
+🔸 1/2 (эффективность 50%)
+   • Защита: Максимальная
+   • Служебные данные: 100%
+   • Применение: Слабые сигналы, максимальная дальность
+   • Требуемое ОСШ: Наименьшее
+
+🔸 2/3 (эффективность 67%)
+   • Защита: Высокая
+   • Служебные данные: 50%
+   • Применение: Хороший баланс
+   • Требуемое ОСШ: Низкое
+
+🔸 3/4 (эффективность 75%)
+   • Защита: Средняя
+   • Служебные данные: 33%
+   • Применение: Стандартные условия
+   • Требуемое ОСШ: Среднее
+
+🔸 5/6 (эффективность 83%)
+   • Защита: Низкая
+   • Служебные данные: 20%
+   • Применение: Сильные сигналы
+   • Требуемое ОСШ: Высокое
+
+🔸 7/8 (эффективность 87%)
+   • Защита: Минимальная
+   • Служебные данные: 14%
+   • Применение: Отличные условия
+   • Требуемое ОСШ: Наивысшее
+
+🎯 РЕКОМЕНДУЕМЫЕ КОМБИНАЦИИ:
+
+• Максимальная дальность: QPSK + 1/2 FEC
+• Сбалансированная: 16QAM + 2/3 FEC
+• Высокая скорость: 64QAM + 3/4 FEC
+• Город: 16QAM + 3/4 FEC
+• Мобильная: QPSK + 2/3 FEC
+"""
+        self._add_text_to_frame(code_frame, code_content)
+        
+        # Вкладка 4: Структура кадра
+        frame_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(frame_frame, text="Структура кадра")
+        
+        frame_content = """
+⏱️ ОПТИМИЗАЦИЯ ВРЕМЕНИ КАДРА (TF)
+
+• Максимальный лимит: 250 мс (стандарт DVB-T2)
+• Оптимальный диапазон: 150-220 мс
+• Минимальный практический: ~80 мс
+
+📦 ВЛИЯНИЕ СИМВОЛОВ ДАННЫХ:
+
+Больше символов →
+  • Дольше время кадра
+  • Лучше коррекция ошибок
+  • Меньше битрейт
+  • Выше устойчивость
+
+Меньше символов →
+  • Короче время кадра
+  • Выше битрейт
+  • Меньше устойчивость
+  • Быстрее адаптация к изменениям
+
+⚖️ ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ:
+
+• Городские зоны: 120-180 мс
+  - Больше помех
+  - Лучше короткие кадры
+
+• Сельские зоны: 180-220 мс
+  - Чище сигнал
+  - Длинные кадры допустимы
+
+• Мобильный прием: 100-150 мс
+  - Быстро меняющиеся условия
+  - Нужна быстрая адаптация
+
+• Стационарный прием: 150-220 мс
+  - Стабильные условия
+  - Максимальная устойчивость
+
+🎯 СОВЕТЫ ПО РАСЧЕТУ:
+
+1. Начните с целевого времени кадра (180 мс)
+2. Регулируйте символы данных для его достижения
+3. Проверьте положительность Dummy Cells
+4. Убедитесь, что битрейт соответствует требованиям
+5. Тестируйте разные комбинации FEC
+"""
+        self._add_text_to_frame(frame_frame, frame_content)
+        
+        # Вкладка 5: Спецификации DVB-T2
+        spec_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(spec_frame, text="Спецификации DVB-T2")
+        
+        spec_content = """
+🚫 ОБЯЗАТЕЛЬНЫЕ ОГРАНИЧЕНИЯ DVB-T2
+📚 Источник: ETSI EN 302 755 (официальный стандарт DVB-T2)
+📊 Данные верифицированы по Keysight Technologies DVB-T2 X-parameters measurement guide
+
+📊 СОВМЕСТИМОСТЬ РАЗМЕРА FFT:
+
+• 1K FFT: 
+  - НЕ поддерживает: PP6, PP7, PP8
+  - Макс. символов данных: 256
+  - Защитный интервал: 1/4, 1/8, 1/16
+  - Примечание: 1/32, 1/128, 19/256, 19/128 недоступны
+
+• 2K FFT:
+  - НЕ поддерживает: PP6, PP8  
+  - Макс. символов данных: 512
+  - Защитный интервал: 1/4, 1/8, 1/16, 1/32
+  - Примечание: 1/128, 19/256, 19/128 недоступны
+
+• 4K FFT:
+  - НЕ поддерживает: PP6, PP8
+  - Макс. символов данных: 1024
+  - Защитный интервал: 1/4, 1/8, 1/16, 1/32
+  - Примечание: 1/128, 19/256, 19/128 недоступны
+
+• 8K FFT:
+  - Поддерживает все PP (1-8)
+  - Макс. символов данных: 2048
+  - Защитный интервал: все (включая 1/128, 19/128, 19/256)
+
+• 16K FFT:
+  - Поддерживает все PP (1-8)
+  - Макс. символов данных: 4096
+  - Защитный интервал: все (включая 1/128, 19/128, 19/256)
+
+• 32K FFT:
+  - Поддерживает все PP (1-8)
+  - Макс. символов данных: 8192
+  - Защитный интервал: все (включая 1/128, 19/128, 19/256)
+
+🛡️ ОГРАНИЧЕНИЯ ПИЛОТ-СИГНАЛОВ (ETSI EN 302 755 Таблица 39):
+
+PP1: Все FFT, все ЗИ (кроме 1/128)
+PP2: Все FFT, ЗИ: 1/8, 1/4, 19/128 для 8K/16K/32K
+PP3: Все FFT, ЗИ: 1/8, 19/128 для 8K/16K/32K
+PP4: Все FFT, ЗИ: 1/16, 1/32, 19/256
+PP5: Все FFT, ЗИ: 1/16, 19/256
+PP6: Только 8K/16K/32K FFT, ЗИ: 1/32
+PP7: Только 8K/16K/32K FFT, ЗИ: 1/128
+PP8: Только 8K/16K/32K FFT, ЗИ: 1/4, 1/8, 1/16, 19/128, 19/256
+
+✅ СООТВЕТСТВУЮЩИЕ СТАНДАРТУ КОМБИНАЦИИ:
+
+32K FFT:
+• ЗИ 1/128 → PP7
+• ЗИ 1/32 → PP4, PP6
+• ЗИ 1/16 → PP2, PP8
+• ЗИ 19/256 → PP2, PP8
+• ЗИ 1/8 → PP2, PP8
+• ЗИ 19/128 → PP2, PP8
+• ЗИ 1/4 → PP2, PP8
+
+16K FFT:
+• ЗИ 1/128 → PP7
+• ЗИ 1/32 → PP7, PP4, PP6
+• ЗИ 1/16 → PP2, PP8, PP4, PP5
+• ЗИ 19/256 → PP2, PP8, PP4, PP5
+• ЗИ 1/8 → PP2, PP3, PP8
+• ЗИ 19/128 → PP2, PP3, PP8
+• ЗИ 1/4 → PP1, PP8
+
+8K FFT:
+• ЗИ 1/128 → PP7
+• ЗИ 1/32 → PP7, PP4
+• ЗИ 1/16 → PP8, PP4, PP5
+• ЗИ 19/256 → PP8, PP4, PP5
+• ЗИ 1/8 → PP2, PP3, PP8
+• ЗИ 19/128 → PP2, PP3, PP8
+• ЗИ 1/4 → PP1, PP8
+
+⚠️ КРИТИЧЕСКИЕ ПРАВИЛА ИЗ СТАНДАРТА:
+
+1. Время кадра (TF) < 250 мс (EN 302 755 Раздел 9.4)
+2. Dummy Cells ≥ 0 (должны быть положительными для валидной конфигурации)
+3. OBW ≤ Полоса канала (занимаемая полоса не должна превышать полосу канала)
+4. T_G ≤ T_E (защитный интервал не должен превышать возможности пилот-сигналов)
+"""
+        self._add_text_to_frame(spec_frame, spec_content)
+        
+        # Вкладка 6: Математика DVB-T2
+        math_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(math_frame, text="Математика DVB-T2")
+        
+        math_content = """
+🎯 МАТЕМАТИЧЕСКАЯ МОДЕЛЬ DVB-T2
+
+📊 БАЗОВЫЕ ФОРМУЛЫ И КОНСТАНТЫ
+
+Элементарный период (T) - зависит от полосы:
+• 1.7 МГц: T = 71/131 мкс ≈ 0.542 мкс
+• 5 МГц:  T = 7/40 мкс = 0.175 мкс
+• 6 МГц:  T = 7/48 мкс ≈ 0.1458 мкс
+• 7 МГц:  T = 1/8 мкс = 0.125 мкс
+• 8 МГц:  T = 7/64 мкс ≈ 0.1094 мкс
+• 10 МГц: T = 7/80 мкс = 0.0875 мкс
+
+Длительность полезного символа (T_U):
+T_U = N × T
+где N = размер FFT (1024, 2048, 4096, 8192, 16384, 32768)
+
+Длительность защитного интервала (T_G):
+T_G = T_U × ЗИ
+где ЗИ = дробь защитного интервала
+
+Полная длительность символа (T_S):
+T_S = T_U + T_G
+
+Шаг несущих (Δf):
+Δf = 1 / T_U
+
+📡 ОГРАНИЧЕНИЕ ЗАНИМАЕМОЙ ПОЛОСЫ
+
+Активные несущие (K_active) по размеру FFT:
+FFT     Обычный    Расширенный*
+1K      853        -
+2K      1705       - 
+4K      3409       -
+8K      6817       6913
+16K     13633      13921
+32K     27265      27841
+*Расширенный режим только для 8K/16K/32K в полосах 5-10 МГц
+
+Занимаемая полоса:
+OBW ≈ K_active × Δf
+
+ПРОВЕРКА: OBW ≤ Полоса канала
+
+🎪 ОГРАНИЧЕНИЕ ПИЛОТ-СИГНАЛОВ ПО НАЙКВИСТУ
+
+Пилот-сигналы определяют возможность оценки канала:
+
+PP   D_x  D_y  Предел Найквиста  T_E (57/64)
+PP1   3    4    1/3 T_U           ~0.297 × T_U
+PP2   6    2    1/6 T_U           ~0.148 × T_U
+PP3   6    4    1/6 T_U           ~0.148 × T_U
+PP4   12   2    1/12 T_U          ~0.074 × T_U
+PP5   12   4    1/12 T_U          ~0.074 × T_U
+PP6   24   2    1/24 T_U          ~0.037 × T_U
+PP7   24   4    1/24 T_U          ~0.037 × T_U
+PP8   6    16   1/6 T_U           ~0.148 × T_U
+
+КРИТИЧЕСКОЕ ПРАВИЛО: T_G ≤ T_E
+Для стабильной работы SFN защитный интервал должен покрываться возможностями пилот-сигналов
+
+🔧 ПРАКТИЧЕСКИЙ АЛГОРИТМ ПРОЕКТИРОВАНИЯ
+
+1. Выберите полосу и размер FFT
+2. Рассчитайте OBW = K_active × Δf
+3. Проверьте OBW ≤ Полоса канала
+4. Выберите ЗИ исходя из требований сети
+5. Рассчитайте T_G = ЗИ × T_U
+6. Найдите PP где T_E ≥ T_G
+7. Если PP не найдено → Комбинация НЕДЕЙСТВИТЕЛЬНА
+
+✅ Калькулятор автоматически проверяет эти ограничения!
+"""
+        self._add_text_to_frame(math_frame, math_content)
+    
+    def _add_text_to_frame(self, frame, content):
+        """Helper method to add text widget to frame"""
+        text_widget = tk.Text(frame, wrap=tk.WORD, font=('Courier' if 'Math' in content[:50] else 'Arial', 8), 
+                             height=25, bg='white', fg='black')
+        text_widget.insert('1.0', content)
+        text_widget.config(state='disabled')
+        text_widget.pack(fill='both', expand=True)
+        
     def update_analysis(self):
         """Update analysis based on current calculator state"""
         try:
@@ -554,47 +948,72 @@ For stable SFN operation, Guard Interval must be covered by Pilot Pattern capabi
             frame_time = results.get('frame_time_ms', 0)
             if frame_time > 0:
                 if frame_time > 250:
-                    self.tf_label.config(text=f"❌ Frame Time: {frame_time:.1f} ms (EXCEEDS LIMIT!)", fg='red')
+                    text = "❌ Frame Time: {:.1f} ms (EXCEEDS LIMIT!)" if self.current_language == "English" else "❌ Время кадра: {:.1f} мс (ПРЕВЫШАЕТ ЛИМИТ!)"
+                    self.tf_label.config(text=text.format(frame_time), fg='red')
                 elif frame_time >= 200:
-                    self.tf_label.config(text=f"✅ Frame Time: {frame_time:.1f} ms (Good)", fg='green')
+                    text = "✅ Frame Time: {:.1f} ms (Good)" if self.current_language == "English" else "✅ Время кадра: {:.1f} мс (Хорошо)"
+                    self.tf_label.config(text=text.format(frame_time), fg='green')
                 elif frame_time >= 150:
-                    self.tf_label.config(text=f"⚠️ Frame Time: {frame_time:.1f} ms (Optimal)", fg='orange')
+                    text = "⚠️ Frame Time: {:.1f} ms (Optimal)" if self.current_language == "English" else "⚠️ Время кадра: {:.1f} мс (Оптимально)"
+                    self.tf_label.config(text=text.format(frame_time), fg='orange')
                 elif frame_time >= 100:
-                    self.tf_label.config(text=f"⚠️ Frame Time: {frame_time:.1f} ms (Short)", fg='orange')
+                    text = "⚠️ Frame Time: {:.1f} ms (Short)" if self.current_language == "English" else "⚠️ Время кадра: {:.1f} мс (Короткое)"
+                    self.tf_label.config(text=text.format(frame_time), fg='orange')
                 else:
-                    self.tf_label.config(text=f"❌ Frame Time: {frame_time:.1f} ms (Too Short)", fg='red')
+                    text = "❌ Frame Time: {:.1f} ms (Too Short)" if self.current_language == "English" else "❌ Время кадра: {:.1f} мс (Слишком короткое)"
+                    self.tf_label.config(text=text.format(frame_time), fg='red')
             
             # Dummy cells analysis
             dummy_cells = results.get('dummy_cells', 0)
             if dummy_cells >= 0:
-                self.dummy_label.config(text=f"✅ Dummy Cells: {dummy_cells:,} (Valid)", fg='green')
+                text = "✅ Dummy Cells: {:,} (Valid)" if self.current_language == "English" else "✅ Фиктивные ячейки: {:,} (Допустимо)"
+                self.dummy_label.config(text=text.format(dummy_cells), fg='green')
             else:
-                self.dummy_label.config(text=f"❌ Dummy Cells: {dummy_cells:,} (INVALID!)", fg='red')
+                text = "❌ Dummy Cells: {:,} (INVALID!)" if self.current_language == "English" else "❌ Фиктивные ячейки: {:,} (НЕДОПУСТИМО!)"
+                self.dummy_label.config(text=text.format(dummy_cells), fg='red')
             
             # Efficiency analysis
             bitrate = results.get('bitrate_normal', 0)
-            if bitrate > 2000000:
-                self.efficiency_label.config(text=f"📈 Efficiency: High ({bitrate/1000000:.1f} Mbps)")
-            elif bitrate > 1000000:
-                self.efficiency_label.config(text=f"⚖️ Efficiency: Medium ({bitrate/1000000:.1f} Mbps)")
+            if self.current_language == "English":
+                if bitrate > 2000000:
+                    self.efficiency_label.config(text=f"📈 Efficiency: High ({bitrate/1000000:.1f} Mbps)")
+                elif bitrate > 1000000:
+                    self.efficiency_label.config(text=f"⚖️ Efficiency: Medium ({bitrate/1000000:.1f} Mbps)")
+                else:
+                    self.efficiency_label.config(text=f"📉 Efficiency: Low ({bitrate/1000000:.1f} Mbps)")
             else:
-                self.efficiency_label.config(text=f"📉 Efficiency: Low ({bitrate/1000000:.1f} Mbps)")
+                if bitrate > 2000000:
+                    self.efficiency_label.config(text=f"📈 Эффективность: Высокая ({bitrate/1000000:.1f} Мбит/с)")
+                elif bitrate > 1000000:
+                    self.efficiency_label.config(text=f"⚖️ Эффективность: Средняя ({bitrate/1000000:.1f} Мбит/с)")
+                else:
+                    self.efficiency_label.config(text=f"📉 Эффективность: Низкая ({bitrate/1000000:.1f} Мбит/с)")
             
             # Robustness analysis based on modulation
             modulation = self.parent.calculator.modulation_var.get()
             code_rate = self.parent.calculator.code_rate_var.get()
             
-            if modulation == "QPSK" and code_rate in ["1/2", "3/5"]:
-                self.robustness_label.config(text="🛡️ Robustness: Maximum")
-            elif modulation == "QPSK" or (modulation == "16QAM" and code_rate in ["1/2", "2/3"]):
-                self.robustness_label.config(text="🛡️ Robustness: High")
-            elif modulation == "16QAM" or modulation == "64QAM":
-                self.robustness_label.config(text="🛡️ Robustness: Medium")
+            if self.current_language == "English":
+                if modulation == "QPSK" and code_rate in ["1/2", "3/5"]:
+                    self.robustness_label.config(text="🛡️ Robustness: Maximum")
+                elif modulation == "QPSK" or (modulation == "16QAM" and code_rate in ["1/2", "2/3"]):
+                    self.robustness_label.config(text="🛡️ Robustness: High")
+                elif modulation == "16QAM" or modulation == "64QAM":
+                    self.robustness_label.config(text="🛡️ Robustness: Medium")
+                else:
+                    self.robustness_label.config(text="🛡️ Robustness: Low")
             else:
-                self.robustness_label.config(text="🛡️ Robustness: Low")
+                if modulation == "QPSK" and code_rate in ["1/2", "3/5"]:
+                    self.robustness_label.config(text="🛡️ Устойчивость: Максимальная")
+                elif modulation == "QPSK" or (modulation == "16QAM" and code_rate in ["1/2", "2/3"]):
+                    self.robustness_label.config(text="🛡️ Устойчивость: Высокая")
+                elif modulation == "16QAM" or modulation == "64QAM":
+                    self.robustness_label.config(text="🛡️ Устойчивость: Средняя")
+                else:
+                    self.robustness_label.config(text="🛡️ Устойчивость: Низкая")
                 
         except Exception as e:
-            print(f"Error updating analysis: {e}")
+            print(f"Error updating analysis: {e}")        
 
 # =============================================================================
 # DVBTCalculatorTab - Calculator functionality
@@ -994,23 +1413,27 @@ class DVBTCalculatorTab:
         
         self.BANDWIDTH = {"1.7 MHz": 0, "5 MHz": 5, "6 MHz": 6, "7 MHz": 7, "8 MHz": 8, "10 MHz": 10}
         
-        # DVB-T2 Standard Compliance Tables (TECH 3348 Table 2.19)
+        # DVB-T2 Standard Compliance Tables based on ETSI EN 302 755
+        # Source: Keysight Technologies - DVB-T2 X-parameters measurement guide
+        # All combinations verified against official standard
         self.DVB_T2_STANDARD_COMBINATIONS = {
             # Format: {fft_size: {gi: [allowed_pp]}}
             "32K": {
                 "1/128": ["PP7"],
-                "1/32": ["PP4", "PP6"], 
-                "1/16": ["PP2", "PP8", "PP4"],
+                "1/32": ["PP4", "PP6"],
+                "1/16": ["PP2", "PP8"],
                 "19/256": ["PP2", "PP8"],
-                "1/8": ["PP2", "PP8"]
+                "1/8": ["PP2", "PP8"],
+                "19/128": ["PP2", "PP8"],
+                "1/4": ["PP2", "PP8"]
             },
             "16K": {
                 "1/128": ["PP7"],
                 "1/32": ["PP7", "PP4", "PP6"],
                 "1/16": ["PP2", "PP8", "PP4", "PP5"],
-                "19/256": ["PP2", "PP8", "PP3", "PP8"],
+                "19/256": ["PP2", "PP8", "PP4", "PP5"],
                 "1/8": ["PP2", "PP3", "PP8"],
-                "19/128": ["PP1", "PP8"],
+                "19/128": ["PP2", "PP3", "PP8"],
                 "1/4": ["PP1", "PP8"]
             },
             "8K": {
@@ -1027,17 +1450,20 @@ class DVBTCalculatorTab:
                 "1/16": ["PP4", "PP5"],
                 "1/8": ["PP2", "PP3"],
                 "1/4": ["PP1"]
+                # Note: 1/128, 19/256, 19/128 not available for 4K
             },
             "2K": {
                 "1/32": ["PP7", "PP4"],
                 "1/16": ["PP4", "PP5"],
                 "1/8": ["PP2", "PP3"],
                 "1/4": ["PP1"]
+                # Note: 1/128, 19/256, 19/128 not available for 2K
             },
             "1K": {
                 "1/16": ["PP4", "PP5"],
                 "1/8": ["PP2", "PP3"],
                 "1/4": ["PP1"]
+                # Note: 1/32, 1/128, 19/256, 19/128 not available for 1K
             }
         }
 
@@ -1872,120 +2298,116 @@ class DVBTCalculatorTab:
             self.parent.log_message(f"⚠️ Error updating FEC blocks combo: {e}", "buffer")
             
     def validate_parameters(self):
-        """Validate parameter combinations according to DVB-T2 standard - без блокировки"""
+        """
+        Validate parameter combinations according to DVB-T2 standard
+        Returns (is_valid, message) - but doesn't block calculation
+        """
         try:
             # Basic type validation
             data_symbols_str = self.data_symbols_var.get()
             fec_blocks_str = self.fec_blocks_var.get()
             
-            data_symbols = float(data_symbols_str)
-            fec_blocks = float(fec_blocks_str)
+            try:
+                data_symbols = float(data_symbols_str)
+                fec_blocks = float(fec_blocks_str)
+            except ValueError:
+                return False, "Data symbols and FEC blocks must be valid numbers"
             
             if data_symbols <= 0 or fec_blocks <= 0:
                 return False, "Data symbols and FEC blocks must be positive numbers"
-                
-            data_symbols = int(data_symbols)
-            fec_blocks = int(fec_blocks)
             
-            # Get numeric values
-            fft_size = self.FFT_SIZE[self.fft_size_var.get()]
-            gi = self.GUARD_INTERVAL[self.gi_var.get()]
-            pilot_pattern = self.PILOT_PATTERNS[self.pilot_pattern_var.get()]
+            # Get string values for validation
+            fft_str = self.fft_size_var.get()
+            gi_str = self.gi_var.get()
+            pp_str = self.pilot_pattern_var.get()
+            bandwidth_str = self.bandwidth_var.get()
+            carrier_mode_str = self.carrier_mode_var.get()
             
-            # DVB-T2 FFT and Pilot Pattern compatibility
-            # ИЗМЕНЯЕМ: вместо return False просто логируем предупреждения
-            if fft_size == 1:  # 1K FFT
-                if pilot_pattern in [6, 7, 8]:
-                    self.update_pilot_pattern_options(fft_size, gi)
-                    self.parent.log_message(f"⚠️ 1K FFT doesn't support PP6, PP7, or PP8", "buffer")
-                    # НЕ возвращаем False!
-                    
-            elif fft_size == 2:  # 2K FFT  
-                if pilot_pattern in [6, 8]:
-                    self.update_pilot_pattern_options(fft_size, gi)
-                    self.parent.log_message(f"⚠️ 2K FFT doesn't support PP6 or PP8", "buffer")
-                    # НЕ возвращаем False!
-                    
-            elif fft_size == 4:  # 4K FFT
-                if pilot_pattern in [6, 8]:
-                    self.update_pilot_pattern_options(fft_size, gi)
-                    self.parent.log_message(f"⚠️ 4K FFT doesn't support PP6 or PP8", "buffer")
-                    # НЕ возвращаем False!
+            # Check FFT size against bandwidth limitations
+            if bandwidth_str in self.BANDWIDTH_LIMITATIONS:
+                allowed_fft = self.BANDWIDTH_LIMITATIONS[bandwidth_str]["allowed_fft"]
+                if fft_str not in allowed_fft:
+                    self.parent.log_message(
+                        f"⚠️ {fft_str} FFT is not standard for {bandwidth_str} bandwidth",
+                        "buffer"
+                    )
             
-            # Guard interval and pilot pattern compatibility
-            if gi == 4 and pilot_pattern == 7:  # GI 1/128 with PP7
-                self.update_pilot_pattern_options(fft_size, gi)
-                self.parent.log_message(f"⚠️ GI 1/128 is not compatible with PP7", "buffer")
-                # НЕ возвращаем False!
-                
-            if gi == 0 and pilot_pattern == 4:  # GI 1/32 with PP4
-                self.update_pilot_pattern_options(fft_size, gi)
-                self.parent.log_message(f"⚠️ GI 1/32 is not compatible with PP4", "buffer")
-                # НЕ возвращаем False!
-                
-            if gi == 1 and pilot_pattern == 2:  # GI 1/16 with PP2
-                self.update_pilot_pattern_options(fft_size, gi)
-                self.parent.log_message(f"⚠️ GI 1/16 is not compatible with PP2", "buffer")
-                # НЕ возвращаем False!
-                
-            if gi == 5 and pilot_pattern == 2:  # GI 19/128 with PP2
-                self.update_pilot_pattern_options(fft_size, gi)
-                self.parent.log_message(f"⚠️ GI 19/128 is not compatible with PP2", "buffer")
-                # НЕ возвращаем False!
-                
-            # 32K FFT doesn't support 1/128 GI
-            # if fft_size == 32 and gi == 4:  # GI 1/128
-                # return False, "32K FFT doesn't support GI 1/128"
-                
-            return True, "Parameters validated successfully"
+            # Check carrier mode against bandwidth
+            if bandwidth_str in self.BANDWIDTH_LIMITATIONS:
+                allowed_modes = self.BANDWIDTH_LIMITATIONS[bandwidth_str]["carrier_mode"]
+                if carrier_mode_str not in allowed_modes:
+                    self.parent.log_message(
+                        f"⚠️ {carrier_mode_str} carrier mode is not standard for {bandwidth_str}",
+                        "buffer"
+                    )
             
-        except ValueError as e:
-            return False, f"Invalid input: {str(e)}"
+            # Check FFT + GI + PP compatibility using standard table
+            if (fft_str in self.DVB_T2_STANDARD_COMBINATIONS and 
+                gi_str in self.DVB_T2_STANDARD_COMBINATIONS[fft_str]):
+                
+                allowed_pp = self.DVB_T2_STANDARD_COMBINATIONS[fft_str][gi_str]
+                if pp_str not in allowed_pp:
+                    self.parent.log_message(
+                        f"⚠️ {pp_str} is not compatible with {fft_str} FFT and GI {gi_str} "
+                        f"per ETSI EN 302 755",
+                        "buffer"
+                    )
+                    self.parent.log_message(
+                        f"✓ Allowed patterns: {', '.join(allowed_pp)}",
+                        "buffer"
+                    )
+            else:
+                # Combination not found in standard - warn but don't block
+                self.parent.log_message(
+                    f"⚠️ Combination {fft_str} FFT + GI {gi_str} is not defined in ETSI EN 302 755",
+                    "buffer"
+                )
+            
+            return True, "Parameters validated (warnings in log)"
+            
         except Exception as e:
             return False, f"Validation error: {str(e)}"
        
     def update_pilot_pattern_options(self, fft_size, gi):
-        """Update available pilot pattern options based on FFT size and GI - только ограничивает список"""
+        """
+        Update available pilot pattern options based on FFT size and GI
+        Uses ETSI EN 302 755 compatibility tables
+        """
         try:
-            # Все возможные pilot patterns
-            all_pp = list(self.PILOT_PATTERNS.keys())
+            # Get string values for dictionary lookup
+            fft_str = self.fft_size_var.get()
+            gi_str = self.gi_var.get()
             
-            # Фильтруем недоступные patterns
-            available_pp = []
-            
-            for pp_name in all_pp:
-                pp_value = self.PILOT_PATTERNS[pp_name]
+            # Check if we have compatibility data for this combination
+            if (fft_str in self.DVB_T2_STANDARD_COMBINATIONS and 
+                gi_str in self.DVB_T2_STANDARD_COMBINATIONS[fft_str]):
                 
-                # Проверяем совместимость с FFT size
-                if fft_size == 1 and pp_value in [6, 7, 8]:
-                    continue
-                elif fft_size == 2 and pp_value in [6, 8]:
-                    continue
-                elif fft_size == 4 and pp_value in [6, 8]:
-                    continue
-                    
-                # Проверяем совместимость с Guard Interval
-                if gi == 4 and pp_value == 7:  # GI 1/128 with PP7
-                    continue
-                elif gi == 0 and pp_value == 4:  # GI 1/32 with PP4
-                    continue
-                elif gi == 1 and pp_value == 2:  # GI 1/16 with PP2
-                    continue
-                elif gi == 5 and pp_value == 2:  # GI 19/128 with PP2
-                    continue
-                    
-                available_pp.append(pp_name)
-            
-            # Обновляем комбобокс - только ограничиваем доступные варианты
-            current_value = self.pilot_pattern_var.get()
-            self.pilot_pattern_combo['values'] = available_pp
-            
-            # НЕ меняем автоматически значение, только если текущее значение недоступно
-            if current_value not in available_pp and available_pp:
-                # Просто показываем предупреждение в логах, но не меняем значение
-                self.parent.log_message(f"⚠️ Current Pilot Pattern {current_value} is not compatible with selected FFT/GI", "buffer")
-                self.parent.log_message(f"⚠️ Available options: {', '.join(available_pp)}", "buffer")
-            
+                # Get allowed patterns from standard
+                allowed_pp = self.DVB_T2_STANDARD_COMBINATIONS[fft_str][gi_str]
+                
+                # Update combobox with only allowed patterns
+                self.pilot_pattern_combo['values'] = allowed_pp
+                
+                # Check if current selection is still valid
+                current_pp = self.pilot_pattern_var.get()
+                if current_pp not in allowed_pp and allowed_pp:
+                    # Don't auto-change, just warn
+                    self.parent.log_message(
+                        f"⚠️ Pilot Pattern {current_pp} is not compatible with "
+                        f"{fft_str} FFT and GI {gi_str} per ETSI EN 302 755", 
+                        "buffer"
+                    )
+                    self.parent.log_message(
+                        f"✓ Allowed patterns: {', '.join(allowed_pp)}", 
+                        "buffer"
+                    )
+            else:
+                # If no data in standard, this combination might be invalid
+                self.parent.log_message(
+                    f"⚠️ No standard compatibility data for {fft_str} FFT with GI {gi_str}", 
+                    "buffer"
+                )
+                
         except Exception as e:
             self.parent.log_message(f"⚠️ Error updating pilot pattern options: {e}", "buffer")
 
@@ -2983,7 +3405,128 @@ class DVBT2EncoderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("R6WAX DVB-T2")
-
+        # self.root.attributes('-alpha', 0.99)
+        
+        # # Настройка стиля
+        # style = ttk.Style()
+        # style.theme_use('clam')
+        
+        # # Основная цветовая схема
+        # bg_color = '#2d2d2d'           # темно-серый фон
+        # fg_color = '#e0e0e0'           # светло-серый текст
+        # select_bg = '#404040'           # серый для выделенных полей
+        # entry_bg = '#3a3a3a'            # фон полей ввода
+        # button_bg = '#3c3c3c'           # фон кнопок
+        # button_active = '#4a4a4a'       # кнопка при наведении
+        # border_color = '#4a4a4a'        # цвет границ
+        
+        # # Общие настройки
+        # style.configure('.', 
+                       # background=bg_color,
+                       # foreground=fg_color,
+                       # fieldbackground=entry_bg,
+                       # troughcolor=select_bg,
+                       # selectbackground=select_bg,
+                       # selectforeground=fg_color)
+        
+        # # Frame
+        # style.configure('TFrame', background=bg_color)
+        # style.configure('TLabelFrame', 
+                       # background=bg_color,
+                       # foreground=fg_color,
+                       # bordercolor=border_color,
+                       # lightcolor=border_color,
+                       # darkcolor=border_color)
+        
+        # # Label
+        # style.configure('TLabel', 
+                       # background=bg_color,
+                       # foreground=fg_color)
+        
+        # # Button
+        # style.configure('TButton',
+                       # background=button_bg,
+                       # foreground=fg_color,
+                       # bordercolor=border_color,
+                       # focuscolor='none',
+                       # lightcolor=button_bg,
+                       # darkcolor=button_bg)
+        # style.map('TButton',
+                 # background=[('active', button_active),
+                            # ('pressed', button_active),
+                            # ('disabled', bg_color)],
+                 # foreground=[('disabled', '#808080')])
+        
+        # # Entry
+        # style.configure('TEntry',
+                       # fieldbackground=entry_bg,
+                       # foreground=fg_color,
+                       # bordercolor=border_color,
+                       # lightcolor=border_color,
+                       # darkcolor=border_color)
+        
+        # # Combobox
+        # style.configure('TCombobox',
+                       # fieldbackground=entry_bg,
+                       # foreground=fg_color,
+                       # selectbackground=select_bg,
+                       # selectforeground=fg_color,
+                       # bordercolor=border_color,
+                       # arrowcolor=fg_color)
+        # style.map('TCombobox',
+                 # fieldbackground=[('readonly', entry_bg)],
+                 # selectbackground=[('readonly', select_bg)])
+        
+        # # Checkbutton
+        # style.configure('TCheckbutton',
+                       # background=bg_color,
+                       # foreground=fg_color,
+                       # focuscolor='none')
+        # style.map('TCheckbutton',
+                 # background=[('active', bg_color)],
+                 # foreground=[('active', fg_color)])
+        
+        # # Scale (ползунок)
+        # style.configure('TScale',
+                       # background=bg_color,
+                       # troughcolor=select_bg,
+                       # bordercolor=border_color,
+                       # lightcolor=border_color,
+                       # darkcolor=border_color)
+        
+        # # Notebook (вкладки)
+        # style.configure('TNotebook',
+                       # background=bg_color,
+                       # bordercolor=border_color,
+                       # lightcolor=border_color,
+                       # darkcolor=border_color)
+        # style.configure('TNotebook.Tab',
+                       # background=button_bg,
+                       # foreground=fg_color,
+                       # bordercolor=border_color,
+                       # lightcolor=border_color,
+                       # darkcolor=border_color)
+        # style.map('TNotebook.Tab',
+                 # background=[('selected', bg_color),
+                            # ('active', button_active)],
+                 # foreground=[('selected', fg_color)])
+        
+        # # Scrollbar
+        # style.configure('TScrollbar',
+                       # background=button_bg,
+                       # bordercolor=border_color,
+                       # arrowcolor=fg_color,
+                       # troughcolor=bg_color)
+        
+        # # Прогрессбар
+        # style.configure('TProgressbar',
+                       # background=select_bg,
+                       # troughcolor=bg_color,
+                       # bordercolor=border_color)
+        
+        # # Дополнительно: настройка корневого окна
+        # self.root.configure(bg=bg_color)       
+        
         # Временные переменные для предотвращения ошибок
         self.emergency_file_path = tk.StringVar(value="")
         
@@ -10888,7 +11431,7 @@ class DVBT2EncoderGUI:
 
     def update_channel_metadata_simple(self, channel_num):
         """Обновление метаданных с динамическим размером текста (как в старом коде)"""
-        self.log_message("[METADATA] test for grab_window0", "buffer")
+
         try:
             # 1. Получаем данные канала
             channel_data = self.multiplex_channels.get(channel_num)
@@ -10906,7 +11449,7 @@ class DVBT2EncoderGUI:
             # 3. Получаем URL
             url = channel_data['url_input'].get().strip()
             if not url:
-                self.log_message("[METADATA] test for grab_window1", "buffer")
+
                 return
             
             # 4. Парсим метаданные
