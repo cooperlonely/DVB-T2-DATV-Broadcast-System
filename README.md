@@ -7,7 +7,7 @@ R6WAX Vibe Coding Project for those, who want, but can't.
 #
 3 - run setup.bat - it's will find and add paths to conf.cfg (u can add custom path into conf.cfg).
 #
-4 - run start.bat, i'ts will run app with activated enveroinment for radioconda resources
+4 - run start.bat - i'ts will run app with activated environment for radioconda resources
 #
 5 - go to setup page and change ip of your pluto, or select your type of SDR.
 #
