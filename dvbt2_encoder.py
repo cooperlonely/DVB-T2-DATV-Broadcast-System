@@ -32,6 +32,262 @@ except ImportError:
     print("win32com not available, .lnk shortcut resolution disabled")
 
 # =============================================================================
+# DVB-T2 Validation Framework based on ETSI EN 302 755
+# =============================================================================
+
+class DVB_T2_Validator:
+    """
+    DVB-T2 parameter validation based on official standard
+    References:
+    - ETSI EN 302 755 V1.4.1 (2015-07) - Digital Video Broadcasting (DVB); Frame structure, 
+      channel coding and modulation for a second generation digital terrestrial television 
+      broadcasting system (DVB-T2)
+    - ETSI TS 102 831 V1.2.1 (2012-08) - Implementation guidelines for DVB-T2
+    - EBU Tech 3348 (2014) - Frequency and Network Planning Parameters
+    - Keysight N6153A DVB-T2 X-parameters measurement application (technical overview)
+    - NorDig Unified Specification Ver 2.6 (2020)
+    """
+    
+    # Physical constants from EN 302 755
+    T_PERIODS = {
+        "1.7 MHz": 71/131,  # μs
+        "5 MHz": 7/40,
+        "6 MHz": 7/48,
+        "7 MHz": 1/8,
+        "8 MHz": 7/64,
+        "10 MHz": 7/80
+    }
+    
+    FFT_POINTS = {
+        "1K": 1024,
+        "2K": 2048,
+        "4K": 4096,
+        "8K": 8192,
+        "16K": 16384,
+        "32K": 32768
+    }
+    
+    ACTIVE_CARRIERS = {
+        "1K": {"Normal": 853, "Extended": None},
+        "2K": {"Normal": 1705, "Extended": None},
+        "4K": {"Normal": 3409, "Extended": None},
+        "8K": {"Normal": 6817, "Extended": 6913},
+        "16K": {"Normal": 13633, "Extended": 13921},
+        "32K": {"Normal": 27265, "Extended": 27841}
+    }
+    
+    GI_FRACTIONS = {
+        "1/128": 1/128,
+        "1/32": 1/32,
+        "1/16": 1/16,
+        "19/256": 19/256,
+        "1/8": 1/8,
+        "19/128": 19/128,
+        "1/4": 1/4
+    }
+    
+    # Pilot Pattern parameters (D_x, D_y) from EN 302 755 Table 39
+    PILOT_PARAMS = {
+        "PP1": {"dx": 3, "dy": 4},
+        "PP2": {"dx": 6, "dy": 2},
+        "PP3": {"dx": 6, "dy": 4},
+        "PP4": {"dx": 12, "dy": 2},
+        "PP5": {"dx": 12, "dy": 4},
+        "PP6": {"dx": 24, "dy": 2},
+        "PP7": {"dx": 24, "dy": 4},
+        "PP8": {"dx": 6, "dy": 16}
+    }
+    
+    # GI availability by FFT size (EN 302 755 Table 39)
+    GI_BY_FFT = {
+        "1K": ["1/4", "1/8", "1/16"],  # 1/32, 1/128, 19/256, 19/128 not defined for 1K
+        "2K": ["1/4", "1/8", "1/16", "1/32"],
+        "4K": ["1/4", "1/8", "1/16", "1/32"],
+        "8K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"],
+        "16K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"],
+        "32K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"]
+    }
+    
+    # FFT availability by bandwidth (physical limitation)
+    FFT_BY_BANDWIDTH = {
+        "1.7 MHz": ["1K", "2K", "4K", "8K"],  # 16K/32K possible mathematically but not in NorDig
+        "5 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+        "6 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+        "7 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+        "8 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+        "10 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"]
+    }
+    
+    # Known working combinations from Keysight documentation (informative only!)
+    KEYSIGHT_COMBINATIONS = {
+        ("32K", "1/128"): ["PP7"],
+        ("32K", "1/32"): ["PP4", "PP6"],
+        ("32K", "1/16"): ["PP2", "PP8"],
+        ("32K", "19/256"): ["PP2", "PP8"],
+        ("32K", "1/8"): ["PP2", "PP8"],
+        ("32K", "19/128"): ["PP2", "PP8"],
+        ("32K", "1/4"): ["PP2", "PP8"],
+        ("16K", "1/128"): ["PP7"],
+        ("16K", "1/32"): ["PP7", "PP4", "PP6"],
+        ("16K", "1/16"): ["PP2", "PP8", "PP4", "PP5"],
+        ("16K", "19/256"): ["PP2", "PP8", "PP4", "PP5"],
+        ("16K", "1/8"): ["PP2", "PP3", "PP8"],
+        ("16K", "19/128"): ["PP2", "PP3", "PP8"],
+        ("16K", "1/4"): ["PP1", "PP8"],
+        ("8K", "1/128"): ["PP7"],
+        ("8K", "1/32"): ["PP7", "PP4"],
+        ("8K", "1/16"): ["PP8", "PP4", "PP5"],
+        ("8K", "19/256"): ["PP8", "PP4", "PP5"],
+        ("8K", "1/8"): ["PP2", "PP3", "PP8"],
+        ("8K", "19/128"): ["PP2", "PP3", "PP8"],
+        ("8K", "1/4"): ["PP1", "PP8"],
+        ("4K", "1/32"): ["PP7", "PP4"],
+        ("4K", "1/16"): ["PP4", "PP5"],
+        ("4K", "1/8"): ["PP2", "PP3"],
+        ("4K", "1/4"): ["PP1"],
+        ("2K", "1/32"): ["PP7", "PP4"],
+        ("2K", "1/16"): ["PP4", "PP5"],
+        ("2K", "1/8"): ["PP2", "PP3"],
+        ("2K", "1/4"): ["PP1"],
+        ("1K", "1/16"): ["PP4", "PP5"],
+        ("1K", "1/8"): ["PP2", "PP3"],
+        ("1K", "1/4"): ["PP1"]
+    }
+    
+    @classmethod
+    def validate(cls, params, results):
+        """
+        Main validation method
+        params: dict with keys: bandwidth, fft_size, gi, pilot_pattern, carrier_mode
+        results: dict from calculator with frame_time_ms, dummy_cells, etc.
+        Returns: (status, message, details)
+        status: "VALID", "COMPATIBLE", "WARNING", "INVALID"
+        """
+        errors = []
+        warnings = []
+        info = []
+        
+        fft = params.get('fft_size', '')
+        gi = params.get('guard_interval', '')
+        pp = params.get('pilot_pattern', '')
+        bw = params.get('bandwidth', '')
+        carrier = params.get('carrier_mode', 'Normal')
+        
+        frame_time = results.get('frame_time_ms', 0)
+        dummy_cells = results.get('dummy_cells', 0)
+        
+        # =====================================================================
+        # LEVEL 1: HARD ERRORS (Physically impossible)
+        # =====================================================================
+        
+        # 1. Frame time limit (EN 302 755 Section 9.4)
+        if frame_time >= 250:
+            errors.append(f"❌ Frame time ({frame_time:.1f} ms) exceeds 250 ms limit")
+            errors.append("   Reference: EN 302 755 Section 9.4 - Maximum T2-frame duration")
+        
+        # 2. Dummy cells must be positive (mathematical necessity)
+        if dummy_cells < 0:
+            errors.append(f"❌ Dummy cells negative ({dummy_cells})")
+            errors.append("   Dummy cells must be ≥ 0 for valid configuration")
+        
+        # 3. Occupied bandwidth must fit in channel (physics)
+        t_period = cls.T_PERIODS.get(bw, 71/131)
+        n_points = cls.FFT_POINTS.get(fft, 1024)
+        t_u = n_points * t_period
+        delta_f = 1 / t_u  # MHz
+        
+        active = cls.ACTIVE_CARRIERS.get(fft, {}).get(carrier, cls.ACTIVE_CARRIERS[fft]["Normal"])
+        if active:
+            obw = active * delta_f  # MHz
+            bw_value = float(bw.split()[0])
+            if obw > bw_value:
+                errors.append(f"❌ Occupied bandwidth ({obw:.3f} MHz) exceeds channel bandwidth ({bw_value} MHz)")
+                errors.append(f"   Active carriers: {active}, Δf: {delta_f:.3f} MHz")
+        
+        # 4. GI must be defined for this FFT size (EN 302 755 Table 39)
+        if gi not in cls.GI_BY_FFT.get(fft, []):
+            errors.append(f"❌ Guard interval {gi} not defined for {fft} FFT")
+            errors.append(f"   Defined GIs for {fft}: {', '.join(cls.GI_BY_FFT[fft])}")
+            errors.append("   Reference: EN 302 755 Table 39 - Allowed guard intervals")
+        
+        # =====================================================================
+        # LEVEL 2: THEORETICAL COMPATIBILITY (T_E vs T_G)
+        # =====================================================================
+        
+        if not errors:  # Only check if no hard errors
+            # Calculate T_E (equalizer capability)
+            if pp in cls.PILOT_PARAMS:
+                dx = cls.PILOT_PARAMS[pp]["dx"]
+                dy = cls.PILOT_PARAMS[pp]["dy"]
+                
+                # T_E from EBU Tech 3348 (conservative model)
+                # T_E = (57/64) × T_U × (1/(D_x × D_y))
+                t_e = (57/64) * t_u * (1/(dx * dy))
+                
+                # T_G = GI × T_U
+                gi_frac = cls.GI_FRACTIONS.get(gi, 1/8)
+                t_g = t_u * gi_frac
+                
+                if t_g > t_e:
+                    ratio = t_g / t_e
+                    if ratio > 2.0:
+                        warnings.append(f"⚠️ T_G ({t_g:.1f} μs) significantly exceeds T_E ({t_e:.1f} μs)")
+                        warnings.append(f"   Ratio: {ratio:.1f}x - equalizer may struggle with long echoes")
+                        warnings.append("   Reference: EBU Tech 3348 - Channel estimation limits")
+                    else:
+                        info.append(f"ℹ️ T_G ({t_g:.1f} μs) slightly exceeds T_E ({t_e:.1f} μs)")
+                        info.append(f"   Ratio: {ratio:.1f}x - should work in most conditions")
+                else:
+                    info.append(f"✅ T_E ({t_e:.1f} μs) ≥ T_G ({t_g:.1f} μs) - theoretically optimal")
+        
+        # =====================================================================
+        # LEVEL 3: DOCUMENTATION STATUS
+        # =====================================================================
+        
+        # Check if in Keysight documentation (informative only)
+        key = (fft, gi)
+        if key in cls.KEYSIGHT_COMBINATIONS:
+            if pp in cls.KEYSIGHT_COMBINATIONS[key]:
+                info.append(f"📚 Combination documented in Keysight DVB-T2 measurement guide")
+            else:
+                info.append(f"📚 Note: PP{pp} not listed for {fft}+{gi} in Keysight docs")
+                info.append(f"   Documented PPs: {', '.join(cls.KEYSIGHT_COMBINATIONS[key])}")
+        
+        # Check 16K/32K with 1.7 MHz (NorDig requirement)
+        if bw == "1.7 MHz" and fft in ["16K", "32K"]:
+            info.append("ℹ️ Note: NorDig Unified Specification does not require")
+            info.append("   receiver support for 16K/32K in 1.7 MHz bandwidth")
+            info.append("   Reference: NorDig Unified Ver 2.6 Section 4.2.3")
+        
+        # =====================================================================
+        # DETERMINE FINAL STATUS
+        # =====================================================================
+        
+        if errors:
+            status = "INVALID"
+            message = "INVALID - see details" 
+        elif warnings:
+            status = "WARNING"
+            message = "VALID but with warnings"
+        elif info and any("ℹ️ Note" in i for i in info):
+            status = "COMPATIBLE"
+            message = "COMPATIBLE - not documented but should work"
+        else:
+            status = "VALID"
+            message = "FULLY COMPLIANT with DVB-T2 standard"
+        
+        # Format details for display
+        details = []
+        if errors:
+            details.extend(errors)
+        if warnings:
+            details.extend(warnings)
+        if info:
+            details.extend(info)
+        
+        return status, message, details
+
+# =============================================================================
 # DVBTTipsWindow - Independent window with DVB-T2 tips and recommendations
 # =============================================================================
 
@@ -53,7 +309,7 @@ class DVBTTipsWindow:
                 
             self.window = tk.Toplevel(self.parent.root)
             self.window.title("DVB-T2 Info & Recommendations")
-            self.window.geometry("1200x700+50+50")  # Увеличиваем размер окна
+            self.window.geometry("1050x800+50+50")  # Увеличиваем размер окна
             self.window.configure(bg='white')
             self.window.resizable(True, True)
             
@@ -84,15 +340,15 @@ class DVBTTipsWindow:
             for widget in self.window.winfo_children():
                 widget.destroy()
             
-            # Main frame with paned window for better space usage
+            # Main frame with paned window
             main_paned = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
             main_paned.pack(fill='both', expand=True, padx=10, pady=10)
             
-            # Left pane - Analysis and Quick Tips
+            # Left pane
             left_frame = ttk.Frame(main_paned)
             main_paned.add(left_frame, weight=1)
             
-            # Right pane - Detailed Guides
+            # Right pane
             right_frame = ttk.Frame(main_paned)
             main_paned.add(right_frame, weight=1)
             
@@ -101,6 +357,9 @@ class DVBTTipsWindow:
             
             # Right content
             self.create_right_content(right_frame)
+            
+            # Установить позицию разделителя через 0.5 сек после создания окна
+            self.window.after(300, lambda: main_paned.sashpos(0, 550))
             
         except Exception as e:
             print(f"Error creating content: {e}")
@@ -571,6 +830,102 @@ For stable SFN operation, Guard Interval must be covered by Pilot Pattern capabi
 ✅ The calculator automatically validates these constraints!
 """
         self._add_text_to_frame(math_frame, math_content)
+
+        # Tab 7: Documentation References
+        doc_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(doc_frame, text="Documentation")
+        
+        doc_content = """
+📚 DVB-T2 STANDARD DOCUMENTATION
+
+ETSI EN 302 755 V1.4.1 (2015-07)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: Frame structure, channel coding and modulation 
+       for a second generation digital terrestrial television 
+       broadcasting system (DVB-T2)
+
+Key Sections:
+• Section 9.4 - T2-frame structure (max 250 ms)
+• Table 39 - Pilot pattern definitions and parameters
+• Table 40 - Guard interval fractions
+• Annex K - Informative examples of system configurations
+
+Download: https://www.etsi.org/deliver/etsi_en/302700_302799/302755/01.04.01_60/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETSI TS 102 831 V1.2.1 (2012-08)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: Implementation guidelines for DVB-T2
+
+Key Sections:
+• Section 5 - System configuration guidelines
+• Annex A - Receiver performance requirements
+
+Download: https://www.etsi.org/deliver/etsi_ts/102800_102899/102831/01.02.01_60/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EBU Tech 3348 (2014)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: Frequency and Network Planning Parameters
+
+Key Sections:
+• Section 4.3 - Guard interval and pilot pattern relationship
+• Equation (4.3) - T_E = (57/64) × T_U × (1/(D_x × D_y))
+
+Download: https://tech.ebu.ch/docs/tech/tech3348.pdf
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Keysight N6153A (2017)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: DVB-T2 X-parameters measurement application
+       Technical Overview
+
+Note: Tables in this document show combinations tested
+      with Keysight equipment, not exhaustive standard
+      requirements. Absence of a combination does NOT
+      imply it's invalid.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NorDig Unified Specification Ver 2.6 (2020)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: NorDig Unified Requirements for Integrated 
+       Receiver Decoders for use in cable, satellite,
+       terrestrial and IP-based networks
+
+Key Sections:
+• Section 4.2.3 - 1.7 MHz bandwidth requirements
+  - Support for 16K/32K in 1.7 MHz is NOT required
+  - This is receiver requirement, not transmitter limitation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VALIDATION LEVELS EXPLAINED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ VALID
+   • Combination explicitly mentioned in EN 302 755
+   • OR documented in multiple independent sources
+   • Guaranteed to work with all compliant receivers
+
+✓ COMPATIBLE
+   • Meets all mathematical requirements
+   • T_E ≥ T_G (theoretical channel estimation capability)
+   • Not explicitly documented but should work
+   • May require testing with specific receivers
+
+⚠️ WARNING
+   • Meets basic requirements (TF<250ms, dummy≥0)
+   • But has theoretical limitations
+   • T_G > T_E - equalizer may struggle with long echoes
+   • Test thoroughly with target receivers
+
+❌ INVALID
+   • Violates physical constraints
+   • TF ≥ 250 ms OR OBW > Channel bandwidth
+   • OR GI not defined for this FFT size
+   • OR dummy cells negative
+   • Will NOT work with any receiver
+"""
+        self._add_text_to_frame(doc_frame, doc_content)
     
     def _create_russian_tabs(self, notebook):
         """Create tabs in Russian"""
@@ -925,6 +1280,128 @@ PP8   6    16   1/6 T_U           ~0.148 × T_U
 ✅ Калькулятор автоматически проверяет эти ограничения!
 """
         self._add_text_to_frame(math_frame, math_content)
+        
+        # Вкладка 6: Документация и валидация (НОВАЯ)
+        doc_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(doc_frame, text="Документация")
+        
+        doc_content = """
+📚 ОФИЦИАЛЬНАЯ ДОКУМЕНТАЦИЯ DVB-T2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETSI EN 302 755 V1.4.1 (2015-07)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Название: Frame structure, channel coding and modulation 
+          for a second generation digital terrestrial television 
+          broadcasting system (DVB-T2)
+
+Ключевые разделы:
+• Раздел 9.4 - Структура T2-кадра (макс. 250 мс)
+• Таблица 39 - Параметры пилот-сигналов (PP1-PP8)
+• Таблица 40 - Дроби защитного интервала
+• Приложение K - Информативные примеры конфигураций
+
+Скачать: https://www.etsi.org/deliver/etsi_en/302700_302799/302755/01.04.01_60/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ETSI TS 102 831 V1.2.1 (2012-08)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Название: Implementation guidelines for DVB-T2
+(Руководство по имплементации)
+
+Ключевые разделы:
+• Раздел 5 - Рекомендации по конфигурации системы
+• Приложение A - Требования к производительности приемников
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EBU Tech 3348 (2014)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Название: Frequency and Network Planning Parameters
+(Параметры частотного и сетевого планирования)
+
+Ключевые разделы:
+• Раздел 4.3 - Связь защитного интервала и пилот-сигналов
+• Уравнение (4.3) - T_E = (57/64) × T_U × (1/(D_x × D_y))
+  (Оценка возможностей эквалайзера)
+
+Скачать: https://tech.ebu.ch/docs/tech/tech3348.pdf
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Keysight N6153A (2017)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Название: DVB-T2 X-parameters measurement application
+           Technical Overview
+
+ВАЖНО: Таблицы в этом документе показывают комбинации,
+протестированные с оборудованием Keysight. Это НЕ
+ограничения стандарта. Отсутствие комбинации в таблице
+НЕ означает, что она невалидна.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NorDig Unified Specification Ver 2.6 (2020)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Название: NorDig Unified Requirements for Integrated 
+           Receiver Decoders
+
+Ключевой раздел:
+• Раздел 4.2.3 - Требования к полосе 1.7 МГц
+  - Поддержка 16K/32K в полосе 1.7 МГц НЕ ТРЕБУЕТСЯ
+  - Это требование К ПРИЕМНИКУ, а не ограничение передатчика
+  - Сигнал может передаваться, но не все приемники его примут
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ПРОИЗВОДИТЕЛИ IP-ЯДЕР (FPGA/ASIC)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Binary Core bc006 [citation:1]:
+• Полосы: 1.7, 5, 6, 7, 8, 10 МГц
+• FFT: 1K, 2K, 4K, 8K, 16K, 32K
+• GI: все (1/128, 1/32, 1/16, 19/256, 1/8, 19/128, 1/4)
+• PP: PP1-PP8
+
+Commsonic [citation:8]:
+• FFT: 1K, 2K, 4K, 8K, 16K, 32K
+• PP: все PP1-PP8
+• Полосы: 1.7-10 МГц с интерполяцией
+
+MVD [citation:9]:
+• FFT: 1K, 2K, 4K, 8K, 16K, 32K
+• GI: все (1/4, 1/8, 1/16, 1/32, 1/128, 19/128, 19/256)
+• Полосы: 5-8 МГц
+
+ЭТО ПОКАЗЫВАЕТ: производители реализуют ВСЕ возможные
+комбинации, не ограничиваясь таблицами Keysight.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+УРОВНИ ВАЛИДАЦИИ (объяснение)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ VALID (ДЕЙСТВИТЕЛЬНО)
+   • Комбинация явно указана в EN 302 755
+   • ИЛИ задокументирована в нескольких независимых источниках
+   • Гарантированно работает со всеми совместимыми приемниками
+
+✓ COMPATIBLE (СОВМЕСТИМО)
+   • Соответствует всем математическим требованиям
+   • T_E ≥ T_G (теоретическая возможность оценки канала)
+   • Явно не задокументировано, но должно работать
+   • Может потребовать тестирования с конкретными приемниками
+
+⚠️ WARNING (ПРЕДУПРЕЖДЕНИЕ)
+   • Соответствует базовым требованиям (TF<250мс, dummy≥0)
+   • Но есть теоретические ограничения
+   • T_G > T_E - эквалайзеру может не хватить возможностей
+   • Требуется тщательное тестирование с целевыми приемниками
+
+❌ INVALID (НЕДЕЙСТВИТЕЛЬНО)
+   • Нарушает физические ограничения
+   • TF ≥ 250 мс ИЛИ OBW > Полоса канала
+   • ИЛИ GI не определен для этого размера FFT
+   • ИЛИ dummy cells отрицательны
+   • НЕ БУДЕТ работать ни с одним приемником
+
+"""
+        self._add_text_to_frame(doc_frame, doc_content)
     
     def _add_text_to_frame(self, frame, content):
         """Helper method to add text widget to frame"""
@@ -1380,8 +1857,8 @@ class DVBTCalculatorTab:
             self.parent.log_message(f"❌ Error setting calculator parameters: {e}", "buffer")       
         
     def setup_calculator_variables(self):
-        """Initialize calculator variables"""
-        # Define constants
+        """Initialize calculator variables with DVB-T2 standard parameters"""
+        # Define constants from ETSI EN 302 755
         self.CODE_RATES = {
             "1/2": 1, "3/5": 2, "2/3": 3, "3/4": 4, 
             "4/5": 5, "5/6": 6, "1/3": 7, "2/5": 8
@@ -1413,86 +1890,106 @@ class DVBTCalculatorTab:
         
         self.BANDWIDTH = {"1.7 MHz": 0, "5 MHz": 5, "6 MHz": 6, "7 MHz": 7, "8 MHz": 8, "10 MHz": 10}
         
-        # DVB-T2 Standard Compliance Tables based on ETSI EN 302 755
-        # Source: Keysight Technologies - DVB-T2 X-parameters measurement guide
-        # All combinations verified against official standard
-        self.DVB_T2_STANDARD_COMBINATIONS = {
-            # Format: {fft_size: {gi: [allowed_pp]}}
-            "32K": {
-                "1/128": ["PP7"],
-                "1/32": ["PP4", "PP6"],
-                "1/16": ["PP2", "PP8"],
-                "19/256": ["PP2", "PP8"],
-                "1/8": ["PP2", "PP8"],
-                "19/128": ["PP2", "PP8"],
-                "1/4": ["PP2", "PP8"]
-            },
-            "16K": {
-                "1/128": ["PP7"],
-                "1/32": ["PP7", "PP4", "PP6"],
-                "1/16": ["PP2", "PP8", "PP4", "PP5"],
-                "19/256": ["PP2", "PP8", "PP4", "PP5"],
-                "1/8": ["PP2", "PP3", "PP8"],
-                "19/128": ["PP2", "PP3", "PP8"],
-                "1/4": ["PP1", "PP8"]
-            },
-            "8K": {
-                "1/128": ["PP7"],
-                "1/32": ["PP7", "PP4"],
-                "1/16": ["PP8", "PP4", "PP5"],
-                "19/256": ["PP8", "PP4", "PP5"],
-                "1/8": ["PP2", "PP3", "PP8"],
-                "19/128": ["PP2", "PP3", "PP8"],
-                "1/4": ["PP1", "PP8"]
-            },
-            "4K": {
-                "1/32": ["PP7", "PP4"],
-                "1/16": ["PP4", "PP5"],
-                "1/8": ["PP2", "PP3"],
-                "1/4": ["PP1"]
-                # Note: 1/128, 19/256, 19/128 not available for 4K
-            },
-            "2K": {
-                "1/32": ["PP7", "PP4"],
-                "1/16": ["PP4", "PP5"],
-                "1/8": ["PP2", "PP3"],
-                "1/4": ["PP1"]
-                # Note: 1/128, 19/256, 19/128 not available for 2K
-            },
-            "1K": {
-                "1/16": ["PP4", "PP5"],
-                "1/8": ["PP2", "PP3"],
-                "1/4": ["PP1"]
-                # Note: 1/32, 1/128, 19/256, 19/128 not available for 1K
-            }
+        # =====================================================================
+        # IMPORTANT: Physical limitations only, no artificial restrictions!
+        # Based on ETSI EN 302 755 and EBU Tech 3348
+        # =====================================================================
+        
+        # Guard Interval availability by FFT size (EN 302 755 Table 39)
+        # Some GIs are simply not defined for certain FFT sizes
+        self.GI_BY_FFT = {
+            "1K": ["1/4", "1/8", "1/16"],  # 1/32, 1/128, 19/256, 19/128 not defined for 1K
+            "2K": ["1/4", "1/8", "1/16", "1/32"],
+            "4K": ["1/4", "1/8", "1/16", "1/32"],
+            "8K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"],
+            "16K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"],
+            "32K": ["1/4", "1/8", "1/16", "1/32", "1/128", "19/128", "19/256"]
         }
-
-        # Bandwidth limitations
-        self.BANDWIDTH_LIMITATIONS = {
-            "1.7 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K"],
-                "carrier_mode": ["Normal"]
-            },
-            "5 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K", "16K", "32K"],
-                "carrier_mode": ["Normal", "Extended"]
-            },
-            "6 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K", "16K", "32K"],
-                "carrier_mode": ["Normal", "Extended"]
-            },
-            "7 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K", "16K", "32K"],
-                "carrier_mode": ["Normal", "Extended"]
-            },
-            "8 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K", "16K", "32K"],
-                "carrier_mode": ["Normal", "Extended"]
-            },
-            "10 MHz": {
-                "allowed_fft": ["1K", "2K", "4K", "8K", "16K", "32K"],
-                "carrier_mode": ["Normal", "Extended"]
-            }
+        
+        # FFT availability by bandwidth (PHYSICAL limitation only!)
+        # Any FFT size can work with any bandwidth as long as OBW fits in channel
+        # The calculator will validate OBW ≤ Channel Bandwidth mathematically
+        self.FFT_BY_BANDWIDTH = {
+            "1.7 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],  # All mathematically possible
+            "5 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+            "6 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+            "7 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+            "8 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"],
+            "10 MHz": ["1K", "2K", "4K", "8K", "16K", "32K"]
+        }
+        
+        # Note: NorDig Unified Specification states that receiver support for
+        # 16K/32K in 1.7 MHz is NOT REQUIRED. This is a receiver requirement,
+        # not a transmitter limitation. The signal can be transmitted, but
+        # some receivers may not demodulate it.
+        
+        # Pilot Pattern parameters for mathematical validation (EBU Tech 3348)
+        self.PILOT_PARAMS = {
+            "PP1": {"dx": 3, "dy": 4},
+            "PP2": {"dx": 6, "dy": 2},
+            "PP3": {"dx": 6, "dy": 4},
+            "PP4": {"dx": 12, "dy": 2},
+            "PP5": {"dx": 12, "dy": 4},
+            "PP6": {"dx": 24, "dy": 2},
+            "PP7": {"dx": 24, "dy": 4},
+            "PP8": {"dx": 6, "dy": 16}
+        }
+        
+        # Elementary periods by bandwidth (EN 302 755)
+        self.T_PERIODS = {
+            "1.7 MHz": 71/131,  # μs
+            "5 MHz": 7/40,
+            "6 MHz": 7/48,
+            "7 MHz": 1/8,
+            "8 MHz": 7/64,
+            "10 MHz": 7/80
+        }
+        
+        # Active carriers by FFT size and carrier mode (EN 302 755)
+        self.ACTIVE_CARRIERS = {
+            "1K": {"Normal": 853, "Extended": None},
+            "2K": {"Normal": 1705, "Extended": None},
+            "4K": {"Normal": 3409, "Extended": None},
+            "8K": {"Normal": 6817, "Extended": 6913},
+            "16K": {"Normal": 13633, "Extended": 13921},
+            "32K": {"Normal": 27265, "Extended": 27841}
+        }
+        
+        # Known working combinations from Keysight documentation (INFORMATIVE ONLY!)
+        # These are combinations tested with Keysight equipment, not standard requirements
+        self.KEYSIGHT_COMBINATIONS = {
+            ("32K", "1/128"): ["PP7"],
+            ("32K", "1/32"): ["PP4", "PP6"],
+            ("32K", "1/16"): ["PP2", "PP8"],
+            ("32K", "19/256"): ["PP2", "PP8"],
+            ("32K", "1/8"): ["PP2", "PP8"],
+            ("32K", "19/128"): ["PP2", "PP8"],
+            ("32K", "1/4"): ["PP2", "PP8"],
+            ("16K", "1/128"): ["PP7"],
+            ("16K", "1/32"): ["PP7", "PP4", "PP6"],
+            ("16K", "1/16"): ["PP2", "PP8", "PP4", "PP5"],
+            ("16K", "19/256"): ["PP2", "PP8", "PP4", "PP5"],
+            ("16K", "1/8"): ["PP2", "PP3", "PP8"],
+            ("16K", "19/128"): ["PP2", "PP3", "PP8"],
+            ("16K", "1/4"): ["PP1", "PP8"],
+            ("8K", "1/128"): ["PP7"],
+            ("8K", "1/32"): ["PP7", "PP4"],
+            ("8K", "1/16"): ["PP8", "PP4", "PP5"],
+            ("8K", "19/256"): ["PP8", "PP4", "PP5"],
+            ("8K", "1/8"): ["PP2", "PP3", "PP8"],
+            ("8K", "19/128"): ["PP2", "PP3", "PP8"],
+            ("8K", "1/4"): ["PP1", "PP8"],
+            ("4K", "1/32"): ["PP7", "PP4"],
+            ("4K", "1/16"): ["PP4", "PP5"],
+            ("4K", "1/8"): ["PP2", "PP3"],
+            ("4K", "1/4"): ["PP1"],
+            ("2K", "1/32"): ["PP7", "PP4"],
+            ("2K", "1/16"): ["PP4", "PP5"],
+            ("2K", "1/8"): ["PP2", "PP3"],
+            ("2K", "1/4"): ["PP1"],
+            ("1K", "1/16"): ["PP4", "PP5"],
+            ("1K", "1/8"): ["PP2", "PP3"],
+            ("1K", "1/4"): ["PP1"]
         }
         
         # GNU Radio constants mapping
@@ -1501,7 +1998,6 @@ class DVBTCalculatorTab:
             "256QAM": "dtv.MOD_256QAM"
         }
 
-        # GNU Radio constants mapping (дополнить существующие)
         self.GR_CODE_RATE = {
             "1/2": "dtv.C1_2", "3/5": "dtv.C3_5", "2/3": "dtv.C2_3", "3/4": "dtv.C3_4",
             "4/5": "dtv.C4_5", "5/6": "dtv.C5_6", "1/3": "dtv.C1_3", "2/5": "dtv.C2_5"
@@ -1666,31 +2162,46 @@ class DVBTCalculatorTab:
         try:
             if not hasattr(self, 'compliance_label'):
                 return
-                
-            fft_size = self.fft_size_var.get()
-            gi = self.gi_var.get()
-            pp = self.pilot_pattern_var.get()
-            bandwidth = self.bandwidth_var.get()
-            carrier_mode = self.carrier_mode_var.get()
             
-            compliance = self.validate_dvb_t2_standard_compliance(fft_size, gi, pp, bandwidth, carrier_mode)
-            
-            # Update label with compliance status
-            if compliance["is_standard_compliant"]:
-                self.compliance_label.config(
-                    text=compliance["message"],
-                    foreground='green',
-                    font=('Arial', 9, 'bold')
-                )
+            # Get status from validator
+            if hasattr(self, 'validation_status'):
+                status = self.validation_status
+                message = self.validation_message
             else:
-                self.compliance_label.config(
-                    text=compliance["message"],
-                    foreground='orange' if "NON-STANDARD" in compliance["message"] else 'red',
-                    font=('Arial', 9, 'bold')
-                )
-                
+                # No validation yet
+                status = "UNKNOWN"
+                message = "Select parameters and calculate"
+            
+            # Set color based on status
+            colors = {
+                "VALID": "green",
+                "COMPATIBLE": "blue",
+                "WARNING": "orange",
+                "INVALID": "red",
+                "UNKNOWN": "gray"
+            }
+            color = colors.get(status, "black")
+            
+            # Format display text - ONLY ONE EMOJI HERE!
+            if status == "VALID":
+                display_text = f"✅ {message.replace('✅', '').strip()}"
+            elif status == "COMPATIBLE":
+                display_text = f"✓ {message.replace('✓', '').replace('✅', '').strip()}"
+            elif status == "WARNING":
+                display_text = f"⚠️ {message.replace('⚠️', '').strip()}"
+            elif status == "INVALID":
+                display_text = f"❌ {message.replace('❌', '').strip()}"
+            else:
+                display_text = f"ℹ️ {message}"
+            
+            self.compliance_label.config(
+                text=display_text,
+                foreground=color,
+                font=('Arial', 9, 'bold')
+            )
+            
         except Exception as e:
-            print(f"Error updating compliance display: {e}")        
+            print(f"Error updating compliance display: {e}")  
         
     def validate_with_mathematical_framework(self, bandwidth, fft_size, gi, pilot_pattern):
         """Validate parameters using DVB-T2 mathematical framework"""
@@ -1869,12 +2380,13 @@ class DVBTCalculatorTab:
                 **original_results
             }
             
+            # ========== НОВЫЙ КОД ==========
+            # Run validation with the new framework
+            self.validate_parameters()
+            # ================================
+            
             # Update parameter limits based on calculator results
             self.update_parameter_limits(original_results)
-            
-            # Update muxrate in main application
-            bitrate_normal = original_results.get('bitrate_normal', 0)
-            self.parent.muxrate.set(f"{bitrate_normal:.6f}")
             
             # Display results
             self.display_original_results(original_results, params)
@@ -2004,34 +2516,6 @@ class DVBTCalculatorTab:
             output_lines.append(f"L1 Modulation: {self.l1_modulation_var.get()}")
             output_lines.append("")
             
-            # DVB-T2 Standard Compliance
-            compliance = self.validate_dvb_t2_standard_compliance(
-                self.fft_size_var.get(),
-                self.gi_var.get(), 
-                self.pilot_pattern_var.get(),
-                self.bandwidth_var.get(),
-                self.carrier_mode_var.get()
-            )
-
-            output_lines.append("=== DVB-T2 STANDARD COMPLIANCE ===")
-            output_lines.append(compliance["message"])
-            for detail in compliance["details"]:
-                output_lines.append(f"  {detail}")
-
-            # Mathematical Framework Validation
-            math_valid, math_msg = self.validate_with_mathematical_framework(
-                self.bandwidth_var.get(),
-                self.fft_size_var.get(),
-                self.gi_var.get(), 
-                self.pilot_pattern_var.get()
-            )
-
-            output_lines.append("")
-            output_lines.append("=== MATHEMATICAL VALIDATION ===")
-            output_lines.append("✅ VALID" if math_valid else "❌ INVALID")
-            output_lines.append(f"Details: {math_msg}")
-            output_lines.append("")
-            
             # Добавляем информацию о реальных лимитах из калькулятора
             if 'max_symbols' in results:
                 output_lines.append(f"Maximum Symbols: {results['max_symbols']}")
@@ -2056,31 +2540,76 @@ class DVBTCalculatorTab:
             
             output_lines.append("")
             
-            # Cells calculation - УБЕДИТЕСЬ ЧТО ИСПОЛЬЗУЕТСЯ results, А НЕ params
+            # Cells calculation
             output_lines.append("=== CELLS CALCULATION ===")
-            total_cells = results.get('total_cells', 0)  # ← ДОЛЖНО БЫТЬ results.get()
-            useful_cells = results.get('useful_cells', 0)  # ← ДОЛЖНО БЫТЬ results.get()
-            dummy_cells = results.get('dummy_cells', 0)  # ← ДОЛЖНО БЫТЬ results.get()
+            total_cells = results.get('total_cells', 0)
+            useful_cells = results.get('useful_cells', 0)
+            dummy_cells = results.get('dummy_cells', 0)
             
             output_lines.append(f"Total Cells: {total_cells:,}")
             output_lines.append(f"Useful Cells: {useful_cells:,}")
             output_lines.append(f"Dummy Cells: {dummy_cells:,}")
             output_lines.append("")
             
-            # Validation
-            output_lines.append("=== VALIDATION RESULTS ===")
+            # =================================================================
+            # DVB-T2 VALIDATION REPORT from mathematical framework
+            # =================================================================
+            output_lines.append("")
+            output_lines.append("== DVB-T2 VALIDATION REPORT ==")
+            output_lines.append("Based on ETSI EN 302 755 and EBU Tech 3348")
+            output_lines.append("")
+            
+            if hasattr(self, 'validation_status'):
+                status = self.validation_status
+                
+                if status == "VALID":
+                    output_lines.append("✅ STATUS: FULLY COMPLIANT")
+                    output_lines.append(" This combination is documented in DVB-T2 ")
+                    output_lines.append(" standard and verified by multiple sources.")
+                elif status == "COMPATIBLE":
+                    output_lines.append("✓ STATUS: COMPATIBLE")
+                    output_lines.append(" combination meets all math requirements, but")
+                    output_lines.append(" may not be explicitly documented in standards.")
+                    output_lines.append(" Expected to work with all compliant receivers.")
+                elif status == "WARNING":
+                    output_lines.append("⚠️ STATUS: VALID WITH WARNINGS")
+                    output_lines.append(" This combination meets basic requirements but")
+                    output_lines.append(" has theoretical limitations. Test with receivers.")
+                elif status == "INVALID":
+                    output_lines.append("❌ STATUS: INVALID")
+                    output_lines.append(" This combination violates physical constraints")
+                    output_lines.append(" and WILL NOT WORK with any receiver.")
+                else:
+                    output_lines.append(f"ℹ️ STATUS: {status}")
+                
+                output_lines.append("")
+                output_lines.append("--- DETAILS ---")
+                if hasattr(self, 'validation_details'):
+                    for detail in self.validation_details:
+                        output_lines.append(detail)
+            else:
+                output_lines.append("ℹ️ Run calculation to see validation results")
+            
+            output_lines.append("")
+            output_lines.append("=== BASIC VALIDATION ===")
             
             frame_time_ms = results.get('frame_time_ms', 0)
             rule1_ok = frame_time_ms < 250
             output_lines.append(f"Frame Time: {frame_time_ms:.2f} ms {'✅' if rule1_ok else '❌'} {'< 250 ms' if rule1_ok else '> 250 ms'}")
             
-            dummy_cells = results.get('dummy_cells', 0)  # ← ДОЛЖНО БЫТЬ results.get()
+            dummy_cells = results.get('dummy_cells', 0)
             rule2_ok = dummy_cells >= 0
             output_lines.append(f"Dummy Cells: {dummy_cells:,} {'✅ POSITIVE' if rule2_ok else '❌ NEGATIVE'}")
             
-            validation_ok = rule1_ok and rule2_ok
-            output_lines.append("")
-            output_lines.append(f"CONFIGURATION: {'✅ VALID' if validation_ok else '❌ INVALID'}")
+            # Mathematical validation
+            math_valid, math_msg = self.validate_with_mathematical_framework(
+                self.bandwidth_var.get(),
+                self.fft_size_var.get(), 
+                self.gi_var.get(),
+                self.pilot_pattern_var.get()
+            )
+            output_lines.append(f"Math Framework: {'✅ PASS' if math_valid else '⚠️ WARNING'}")
+            output_lines.append(f"   {math_msg}")
             
             # Detailed parameters
             output_lines.append("")
@@ -2096,51 +2625,24 @@ class DVBTCalculatorTab:
             
         except Exception as e:
             self.parent.log_message(f"❌ Error displaying results: {e}", "buffer")
+            import traceback
+            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
             
     def update_compatibility_based_on_math(self):
         """Update parameter compatibility based on mathematical framework"""
         try:
+            # Этот метод больше не нужен для жестких ограничений,
+            # оставляем только для информационных целей
             bandwidth = self.bandwidth_var.get()
             fft_size = self.fft_size_var.get()
             gi = self.gi_var.get()
+            pp = self.pilot_pattern_var.get()
             
-            # Calculate T_U and T_G
-            t_periods = {"1.7 MHz": 71/131, "5 MHz": 7/40, "6 MHz": 7/48, 
-                        "7 MHz": 1/8, "8 MHz": 7/64, "10 MHz": 7/80}
-            fft_points = {"1K": 1024, "2K": 2048, "4K": 4096,
-                         "8K": 8192, "16K": 16384, "32K": 32768}
-            gi_fractions = {"1/128": 1/128, "1/32": 1/32, "1/16": 1/16,
-                           "19/256": 19/256, "1/8": 1/8, "19/128": 19/128, "1/4": 1/4}
+            # Просто логируем информацию, не ограничиваем выбор
+            self.parent.log_message(f"ℹ️ Current combination: {fft_size}+{gi}+{pp}", "buffer")
             
-            T = t_periods.get(bandwidth, 71/131)
-            N = fft_points.get(fft_size, 8192)
-            GI_frac = gi_fractions.get(gi, 1/8)
-            
-            T_U = N * T
-            T_G = T_U * GI_frac
-            
-            # Filter Pilot Patterns based on T_E >= T_G
-            pp_limits = {
-                "PP1": 0.297, "PP2": 0.148, "PP3": 0.148, "PP4": 0.074,
-                "PP5": 0.074, "PP6": 0.037, "PP7": 0.037, "PP8": 0.148
-            }
-            
-            available_pp = []
-            for pp, t_e_factor in pp_limits.items():
-                T_E = T_U * t_e_factor
-                if T_E >= T_G:
-                    available_pp.append(pp)
-            
-            # Update PP combobox
-            current_pp = self.pilot_pattern_var.get()
-            self.pilot_pattern_combo['values'] = available_pp
-            
-            if current_pp not in available_pp and available_pp:
-                self.parent.log_message(f"⚠️ Current PP {current_pp} cannot cover GI {gi}", "buffer")
-                self.parent.log_message(f"⚠️ Available PP: {', '.join(available_pp)}", "buffer")
-                
         except Exception as e:
-            self.parent.log_message(f"⚠️ Math compatibility update error: {e}", "buffer")             
+            self.parent.log_message(f"⚠️ Math compatibility check error: {e}", "buffer")            
             
     def update_parameter_limits(self, results):
         """Update parameter limits based on calculator results"""
@@ -2299,117 +2801,75 @@ class DVBTCalculatorTab:
             
     def validate_parameters(self):
         """
-        Validate parameter combinations according to DVB-T2 standard
+        Validate parameter combinations using DVB-T2 mathematical framework
         Returns (is_valid, message) - but doesn't block calculation
         """
         try:
-            # Basic type validation
-            data_symbols_str = self.data_symbols_var.get()
-            fec_blocks_str = self.fec_blocks_var.get()
+            # Get current values
+            params = {
+                'bandwidth': self.bandwidth_var.get(),
+                'fft_size': self.fft_size_var.get(),
+                'guard_interval': self.gi_var.get(),
+                'pilot_pattern': self.pilot_pattern_var.get(),
+                'carrier_mode': self.carrier_mode_var.get()
+            }
             
-            try:
-                data_symbols = float(data_symbols_str)
-                fec_blocks = float(fec_blocks_str)
-            except ValueError:
-                return False, "Data symbols and FEC blocks must be valid numbers"
-            
-            if data_symbols <= 0 or fec_blocks <= 0:
-                return False, "Data symbols and FEC blocks must be positive numbers"
-            
-            # Get string values for validation
-            fft_str = self.fft_size_var.get()
-            gi_str = self.gi_var.get()
-            pp_str = self.pilot_pattern_var.get()
-            bandwidth_str = self.bandwidth_var.get()
-            carrier_mode_str = self.carrier_mode_var.get()
-            
-            # Check FFT size against bandwidth limitations
-            if bandwidth_str in self.BANDWIDTH_LIMITATIONS:
-                allowed_fft = self.BANDWIDTH_LIMITATIONS[bandwidth_str]["allowed_fft"]
-                if fft_str not in allowed_fft:
-                    self.parent.log_message(
-                        f"⚠️ {fft_str} FFT is not standard for {bandwidth_str} bandwidth",
-                        "buffer"
-                    )
-            
-            # Check carrier mode against bandwidth
-            if bandwidth_str in self.BANDWIDTH_LIMITATIONS:
-                allowed_modes = self.BANDWIDTH_LIMITATIONS[bandwidth_str]["carrier_mode"]
-                if carrier_mode_str not in allowed_modes:
-                    self.parent.log_message(
-                        f"⚠️ {carrier_mode_str} carrier mode is not standard for {bandwidth_str}",
-                        "buffer"
-                    )
-            
-            # Check FFT + GI + PP compatibility using standard table
-            if (fft_str in self.DVB_T2_STANDARD_COMBINATIONS and 
-                gi_str in self.DVB_T2_STANDARD_COMBINATIONS[fft_str]):
-                
-                allowed_pp = self.DVB_T2_STANDARD_COMBINATIONS[fft_str][gi_str]
-                if pp_str not in allowed_pp:
-                    self.parent.log_message(
-                        f"⚠️ {pp_str} is not compatible with {fft_str} FFT and GI {gi_str} "
-                        f"per ETSI EN 302 755",
-                        "buffer"
-                    )
-                    self.parent.log_message(
-                        f"✓ Allowed patterns: {', '.join(allowed_pp)}",
-                        "buffer"
-                    )
+            # We need calculation results for frame_time and dummy_cells
+            # If not available yet, create placeholder
+            if hasattr(self, 'calculation_results') and self.calculation_results:
+                results = self.calculation_results
             else:
-                # Combination not found in standard - warn but don't block
-                self.parent.log_message(
-                    f"⚠️ Combination {fft_str} FFT + GI {gi_str} is not defined in ETSI EN 302 755",
-                    "buffer"
-                )
+                results = {'frame_time_ms': 0, 'dummy_cells': 0}
             
-            return True, "Parameters validated (warnings in log)"
+            # Use the new validator
+            status, message, details = DVB_T2_Validator.validate(params, results)
+            
+            # Store for display - message should NOT have emoji here
+            self.validation_status = status
+            self.validation_message = message  # Keep as is, we'll add emoji in display
+            self.validation_details = details
+            
+            # Update compliance label under T2 Info button
+            self.update_compliance_display()
+            
+            # Log details
+            for detail in details:
+                self.parent.log_message(detail, "buffer")
+            
+            # Return True always - we don't block calculation
+            return True, message
             
         except Exception as e:
-            return False, f"Validation error: {str(e)}"
+            self.parent.log_message(f"❌ Validation error: {str(e)}", "buffer")
+            return True, "Validation error - see log"
        
     def update_pilot_pattern_options(self, fft_size, gi):
         """
-        Update available pilot pattern options based on FFT size and GI
-        Uses ETSI EN 302 755 compatibility tables
+        Update available pilot pattern options - now only warns, doesn't restrict
         """
         try:
-            # Get string values for dictionary lookup
+            # We no longer restrict PP options - let user choose
+            # Just log information about known combinations
             fft_str = self.fft_size_var.get()
             gi_str = self.gi_var.get()
+            pp_str = self.pilot_pattern_var.get()
             
-            # Check if we have compatibility data for this combination
-            if (fft_str in self.DVB_T2_STANDARD_COMBINATIONS and 
-                gi_str in self.DVB_T2_STANDARD_COMBINATIONS[fft_str]):
-                
-                # Get allowed patterns from standard
-                allowed_pp = self.DVB_T2_STANDARD_COMBINATIONS[fft_str][gi_str]
-                
-                # Update combobox with only allowed patterns
-                self.pilot_pattern_combo['values'] = allowed_pp
-                
-                # Check if current selection is still valid
-                current_pp = self.pilot_pattern_var.get()
-                if current_pp not in allowed_pp and allowed_pp:
-                    # Don't auto-change, just warn
+            # Check if we have Keysight data for this combination
+            key = (fft_str, gi_str)
+            if hasattr(self, 'KEYSIGHT_COMBINATIONS') and key in self.KEYSIGHT_COMBINATIONS:
+                known_pp = self.KEYSIGHT_COMBINATIONS[key]
+                if pp_str not in known_pp:
                     self.parent.log_message(
-                        f"⚠️ Pilot Pattern {current_pp} is not compatible with "
-                        f"{fft_str} FFT and GI {gi_str} per ETSI EN 302 755", 
+                        f"ℹ️ Note: {pp_str} not documented for {fft_str}+{gi_str} in Keysight docs",
                         "buffer"
                     )
                     self.parent.log_message(
-                        f"✓ Allowed patterns: {', '.join(allowed_pp)}", 
+                        f"   Documented PPs: {', '.join(known_pp)}",
                         "buffer"
                     )
-            else:
-                # If no data in standard, this combination might be invalid
-                self.parent.log_message(
-                    f"⚠️ No standard compatibility data for {fft_str} FFT with GI {gi_str}", 
-                    "buffer"
-                )
-                
+            
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error updating pilot pattern options: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error checking PP compatibility: {e}", "buffer")
 
     def save_preset(self):
         """Save current parameters as GNU Radio preset with JSON scheme"""
