@@ -1,7 +1,7 @@
 # DVB-T2-DATV-Broadcast-System
 R6WAX Vibe Coding Project for those, who want, but can't.
 #
-1 - download dvbt2enc.py, conf.cfg, setup.bat, start.bat, ffmpeg, folders with modulator presets, dvbt2rate.exe into any folder.
+1 - download dvbt2_encoder.py, conf.cfg, setup.bat, start.bat, ffmpeg, folders with modulator presets & saved schemes, dvbt2rate.exe into any folder.
 #
 2 - download gnu radio from repo and use standard path or copy path, if custom installation.
 #
