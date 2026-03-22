@@ -4774,6 +4774,16 @@ class DVBT2EncoderGUI:
         # Load saved configuration
         self.load_config()
         
+        emergency_path = self.emergency_file_path.get()
+        if emergency_path and not os.path.isabs(emergency_path):
+            # Если путь относительный, преобразуем в абсолютный относительно папки скрипта
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            abs_path = os.path.join(script_dir, emergency_path)
+            if os.path.exists(abs_path):
+                self.emergency_file_path.set(abs_path)
+            else:
+                self.log_message(f"⚠️ Emergency file not found: {abs_path}", "buffer")
+                
         # Load encoder presets
         self.load_encoder_presets()        
                 
@@ -10743,7 +10753,16 @@ class DVBT2EncoderGUI:
                     'position': ch_num
                 }
                 
-            config['emergency_file_path'] = self.emergency_file_path.get()
+            emergency_path = self.emergency_file_path.get()
+            if emergency_path:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                # Если файл находится в папке скрипта, сохраняем только имя файла
+                if os.path.dirname(emergency_path) == script_dir:
+                    config['emergency_file_path'] = os.path.basename(emergency_path)
+                else:
+                    config['emergency_file_path'] = emergency_path
+            else:
+                config['emergency_file_path'] = ""
             config['multiplex_channels'] = multiplex_config
             config['multiplex_mode'] = self.multiplex_mode.get()
 
