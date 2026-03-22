@@ -1,129 +1,98 @@
 @echo off
 chcp 65001 >nul
+setlocal enabledelayedexpansion
 
 echo ================================================
-echo  Simple DVB-T2 Encoder Launcher
+echo  DVB-T2 Encoder Launcher (Portable Mode)
 echo ================================================
+echo.
 
-:: Configuration from file
-if exist "conf.cfg" (
-    echo Loading configuration from conf.cfg...
-    for /f "tokens=1,2 delims==" %%a in (conf.cfg) do (
-        if "%%a"=="RADIOCONDA_PATH" set "PYTHON_EXE=%%b"
-        if "%%a"=="CONDA_BASE" set "RADIOCONDA_DIR=%%b"
-        if "%%a"=="CONDA_BASE_PATH" set "RADIOCONDA_DIR=%%b"
-    )
-)
+:: Получаем директорию, где находится этот батник
+set "SCRIPT_DIR=%~dp0"
+set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-:: Если путь не найден в конфиге - выводим ошибку
-if not defined PYTHON_EXE (
-    echo ERROR: RADIOCONDA_PATH not found in conf.cfg!
-    echo Please run setup.bat first or edit conf.cfg manually.
-    echo.
-    echo Example conf.cfg contents:
-    echo RADIOCONDA_PATH=C:\path\to\radioconda\python.exe
-    echo CONDA_BASE=C:\path\to\radioconda
-    pause
-    exit /b 1
-)
-
-:: Если CONDA_BASE не указан, пытаемся вывести из пути к Python
-if not defined RADIOCONDA_DIR (
-    for %%F in ("%PYTHON_EXE%") do set "RADIOCONDA_DIR=%%~dpF"
-    set "RADIOCONDA_DIR=%RADIOCONDA_DIR:~0,-1%"
-)
-
-:: Удаляем возможные пробелы в конце путей
-set "PYTHON_EXE=%PYTHON_EXE: =%"
-set "RADIOCONDA_DIR=%RADIOCONDA_DIR: =%"
+:: Формируем пути относительно батника
+set "RADIOCONDA_DIR=%SCRIPT_DIR%\radioconda"
+set "PYTHON_EXE=%RADIOCONDA_DIR%\python.exe"
+set "SOAPY_SDR_ROOT=%RADIOCONDA_DIR%\Library"
+set "SOAPY_SDR_PLUGIN_PATH=%RADIOCONDA_DIR%\Library\lib\SoapySDR\modules0.8"
 
 :: Проверяем существование Python
 if not exist "%PYTHON_EXE%" (
-    echo ERROR: Python not found at: %PYTHON_EXE%
-    echo Please check the RADIOCONDA_PATH in conf.cfg
+    echo [ERROR] Python not found at: %PYTHON_EXE%
+    echo.
+    echo Make sure radioconda is in the correct folder:
+    echo %RADIOCONDA_DIR%
     pause
     exit /b 1
 )
 
-echo Using Python: %PYTHON_EXE%
+echo [OK] Found Python: %PYTHON_EXE%
+echo [OK] SoapySDR root: %SOAPY_SDR_ROOT%
+echo [OK] SoapySDR plugins: %SOAPY_SDR_PLUGIN_PATH%
+echo.
 
-:: Устанавливаем переменные окружения SoapySDR
+:: Устанавливаем переменные окружения
 set "CONDA_BASE=%RADIOCONDA_DIR%"
-set "SOAPY_SDR_ROOT=%CONDA_BASE%\Library"
-set "SOAPY_SDR_PLUGIN_PATH=%CONDA_BASE%\Library\lib\SoapySDR\modules0.8"
-
-echo Conda Base: %CONDA_BASE%
-echo SOAPY_SDR_ROOT: %SOAPY_SDR_ROOT%
-echo SOAPY_SDR_PLUGIN_PATH: %SOAPY_SDR_PLUGIN_PATH%
-
-:: Добавляем необходимые пути в PATH
-set "ORIGINAL_PATH=%PATH%"
-set "PATH=%CONDA_BASE%\Library\bin;%CONDA_BASE%\Library\lib;%CONDA_BASE%\DLLs;%CONDA_BASE%;%ORIGINAL_PATH%"
+set "PATH=%RADIOCONDA_DIR%\Library\bin;%RADIOCONDA_DIR%\Library\lib;%RADIOCONDA_DIR%\DLLs;%RADIOCONDA_DIR%;%PATH%"
 
 :: Переходим в директорию со скриптом
-cd /d "%~dp0"
+cd /d "%SCRIPT_DIR%"
 
-echo Current directory: %CD%
-
+echo [OK] Current directory: %CD%
 echo.
-echo ================================================
-echo  Testing environment...
-echo ================================================
+REM echo ================================================
+REM echo  Testing environment...
+REM echo ================================================
 
-:: Создаем временный Python скрипт для тестирования
-echo import sys, os, platform > test_env.py
-echo print('Python:', sys.executable) >> test_env.py
-echo print('Version:', platform.python_version()) >> test_env.py
-echo print('Working Directory:', os.getcwd()) >> test_env.py
-echo print('') >> test_env.py
-echo print('SOAPY_SDR_ROOT:', os.environ.get('SOAPY_SDR_ROOT', 'Not set')) >> test_env.py
-echo print('SOAPY_SDR_PLUGIN_PATH:', os.environ.get('SOAPY_SDR_PLUGIN_PATH', 'Not set')) >> test_env.py
-echo print('') >> test_env.py
-echo try: >> test_env.py
-echo     import gnuradio >> test_env.py
-echo     print('GNU Radio: OK') >> test_env.py
-echo except ImportError as e: >> test_env.py
-echo     print('GNU Radio: ERROR -', str(e)) >> test_env.py
-echo print('') >> test_env.py
-echo try: >> test_env.py
-echo     import SoapySDR >> test_env.py
-echo     print('SoapySDR: OK') >> test_env.py
-echo     print('') >> test_env.py
-echo     print('Available SDR devices:') >> test_env.py
-echo     results = SoapySDR.Device.enumerate() >> test_env.py
-echo except ImportError as e: >> test_env.py
-echo     print('SoapySDR: ERROR -', str(e)) >> test_env.py
-echo     print('') >> test_env.py
-echo     print('To install SoapySDR:') >> test_env.py
-echo     print('conda install -c conda-forge soapysdr') >> test_env.py
+REM :: Создаем временный Python скрипт для тестирования
+REM echo import sys, os, platform > "%TEMP%\test_env.py"
+REM echo print('[TEST] Python:', sys.executable) >> "%TEMP%\test_env.py"
+REM echo print('[TEST] Version:', platform.python_version()) >> "%TEMP%\test_env.py"
+REM echo print('[TEST] Working Directory:', os.getcwd()) >> "%TEMP%\test_env.py"
+REM echo print('') >> "%TEMP%\test_env.py"
+REM echo print('[TEST] SOAPY_SDR_ROOT:', os.environ.get('SOAPY_SDR_ROOT', 'Not set')) >> "%TEMP%\test_env.py"
+REM echo print('[TEST] SOAPY_SDR_PLUGIN_PATH:', os.environ.get('SOAPY_SDR_PLUGIN_PATH', 'Not set')) >> "%TEMP%\test_env.py"
+REM echo print('') >> "%TEMP%\test_env.py"
+REM echo try: >> "%TEMP%\test_env.py"
+REM echo     import gnuradio >> "%TEMP%\test_env.py"
+REM echo     print('[TEST] GNU Radio: OK') >> "%TEMP%\test_env.py"
+REM echo except ImportError as e: >> "%TEMP%\test_env.py"
+REM echo     print('[TEST] GNU Radio: ERROR -', str(e)) >> "%TEMP%\test_env.py"
+REM echo print('') >> "%TEMP%\test_env.py"
+REM echo try: >> "%TEMP%\test_env.py"
+REM echo     import SoapySDR >> "%TEMP%\test_env.py"
+REM echo     print('[TEST] SoapySDR: OK') >> "%TEMP%\test_env.py"
+REM echo     print('') >> "%TEMP%\test_env.py"
+REM echo     print('[TEST] Available SDR devices:') >> "%TEMP%\test_env.py"
+REM echo     results = SoapySDR.Device.enumerate() >> "%TEMP%\test_env.py"
+REM echo     for dev in results: >> "%TEMP%\test_env.py"
+REM echo         print(f'  - {dev}') >> "%TEMP%\test_env.py"
+REM echo except ImportError as e: >> "%TEMP%\test_env.py"
+REM echo     print('[TEST] SoapySDR: ERROR -', str(e)) >> "%TEMP%\test_env.py"
 
-"%PYTHON_EXE%" test_env.py
-del test_env.py
+REM "%PYTHON_EXE%" "%TEMP%\test_env.py"
+REM del "%TEMP%\test_env.py"
 
-echo.
+REM echo.
 echo ================================================
 echo  Running DVB-T2 Encoder...
 echo ================================================
 
 if not exist "dvbt2_encoder.py" (
-    echo ERROR: dvbt2_encoder.py not found in current directory!
+    echo [ERROR] dvbt2_encoder.py not found in current directory!
     pause
     exit /b 1
 )
 
-echo Starting dvbt2_encoder.py...
+echo [OK] Starting dvbt2_encoder.py...
 "%PYTHON_EXE%" dvbt2_encoder.py
 
 if errorlevel 1 (
     echo.
     echo ================================================
-    echo  ERROR: Script failed to run
+    echo  ERROR: Application failed to run
     echo ================================================
-    echo.
-    echo Troubleshooting:
-    echo 1. Check if SoapySDR is installed: conda list soapysdr
-    echo 2. Install SoapySDR: conda install -c conda-forge soapysdr
-    echo 3. Make sure conf.cfg contains correct paths
 )
 
 echo.

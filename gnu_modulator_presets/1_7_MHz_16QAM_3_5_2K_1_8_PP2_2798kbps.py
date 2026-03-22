@@ -143,7 +143,7 @@ class DVB_1_7_MHz_16QAM_3_5_2K_1_8_PP2_2798kbps(gr.top_block, Qt.QWidget):
             dtv.CARRIERS_NORMAL,
             dtv.FFTSIZE_2K,
             dtv.GI_1_8,
-            dtv.L1_MOD_16QAM,
+            dtv.L1_MOD_BPSK,
             dtv.PILOT_PP2,
             2,
             190,

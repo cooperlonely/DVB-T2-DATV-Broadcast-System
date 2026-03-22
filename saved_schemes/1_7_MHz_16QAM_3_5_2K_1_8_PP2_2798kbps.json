@@ -10,9 +10,9 @@
         "frame_size": "Normal",
         "carrier_mode": "Normal",
         "pilot_pattern": "PP2",
-        "l1_modulation": "16QAM",
+        "l1_modulation": "BPSK",
         "total_cells": 299912,
-        "dummy_cells": 5985,
+        "dummy_cells": 4857,
         "useful_cells": 291600
     },
     "results": {
