@@ -8373,7 +8373,6 @@ class DVBT2EncoderGUI:
                                                font=('Arial', 9, 'bold'))
         self.mode_indicator_label.pack()
 
-        # Добавьте trace для обновления индикатора
         self.pix_fmt.trace_add('write', self.update_mode_indicator)        
         
         # Top frame for Network and Buffer settings
@@ -8391,14 +8390,14 @@ class DVBT2EncoderGUI:
 
         # Row 0: Input
         ttk.Label(net_frame, text="Input:", font=('Arial', 9)).grid(row=0, column=0, sticky='w', pady=1)
-        ttk.Entry(net_frame, textvariable=self.localhost_ip, width=12, font=('Arial', 9)).grid(row=0, column=1, padx=2, pady=1)
+        ttk.Entry(net_frame, textvariable=self.localhost_ip, width=14, font=('Arial', 9)).grid(row=0, column=1, padx=2, pady=1)
         ttk.Label(net_frame, text=":", font=('Arial', 9)).grid(row=0, column=2, sticky='w', pady=1)
         ttk.Entry(net_frame, textvariable=self.udp_input_port, width=6, font=('Arial', 9)).grid(row=0, column=3, padx=2, pady=1)
         ttk.Label(net_frame, text="UDP", font=('Arial', 9)).grid(row=0, column=4, sticky='w', pady=1, padx=2)
 
         # Row 1: Output
         ttk.Label(net_frame, text="Output:", font=('Arial', 9)).grid(row=1, column=0, sticky='w', pady=1)
-        ttk.Entry(net_frame, textvariable=self.output_ip, width=12, font=('Arial', 9)).grid(row=1, column=1, padx=2, pady=1)
+        ttk.Entry(net_frame, textvariable=self.output_ip, width=14, font=('Arial', 9)).grid(row=1, column=1, padx=2, pady=1)
         ttk.Label(net_frame, text=":", font=('Arial', 9)).grid(row=1, column=2, sticky='w', pady=1)
         udp_output_entry = ttk.Entry(net_frame, textvariable=self.udp_output_port, width=6, font=('Arial', 9))
         udp_output_entry.grid(row=1, column=3, padx=2, pady=1)
@@ -8407,7 +8406,7 @@ class DVBT2EncoderGUI:
 
         # Row 2: Muxrate и Buffer Size в одной строке
         ttk.Label(net_frame, text="Muxrate:", font=('Arial', 9)).grid(row=2, column=0, sticky='w', pady=1)
-        ttk.Entry(net_frame, textvariable=self.muxrate, width=14, font=('Arial', 8)).grid(row=2, column=1, padx=2, pady=1)
+        ttk.Entry(net_frame, textvariable=self.muxrate, width=16, font=('Arial', 8)).grid(row=2, column=1, padx=2, pady=1)
 
         # Буфер под портами (колонка 3)
         udp_buffer_spinbox = ttk.Spinbox(net_frame, from_=1, to=25, increment=1, 
