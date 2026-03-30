@@ -16,7 +16,7 @@ R6WAX Vibe Coding Project for those, who want, but can't.
 
 # 
 
-4 * go to setup tab and change ip of your pluto, or select your type of SDR. 
+4 * go to settings tab and change ip of your pluto, or select your type of SDR. 
 * select available on your PC video codec type. 
 * go to Multiplex tab and configure your channel list and select types of inpit source for each
 for the grab_window u can use 2 options for grabbing any opened window on your system: 
