@@ -40,7 +40,7 @@ application support 10bit hevc, u can broadcast with HDR10. libx265 and hevc_nve
 
 # 
 
-5 - for use most popular \& cheap DVB-T2 tuners from any worldwide market with support 1.7MHZ bandwidth, select custom firmware for your cpu/tuner(hardware of tuner you have) combination from here https://gitverse.ru/McMCC/net\_upgrade\_firmwares , first time u must flash it via UART or via SPI programmer, next time u can update FW via USB.
+5 - for use most popular \& cheap DVB-T2 tuners from any worldwide market with support 1.7MHZ bandwidth, select custom firmware for your cpu/tuner(hardware of tuner you have) combination from here (https://gitverse.ru/McMCC/net_upgrade_firmwares) , first time u must flash it via UART or via SPI programmer, next time u can update FW via USB.
 
 # 
 
