@@ -18,23 +18,23 @@ R6WAX Vibe Coding Project for those, who want, but can't.
 
 4 * go to settings tab and change ip of your pluto, or select your type of SDR. 
 * select available on your PC video codec type. 
-* go to Multiplex tab and configure your channel list and select types of inpit source for each
-for the grab_window u can use 2 options for grabbing any opened window on your system: 
-* 1 gdigrab - old ffmpeg method, but it's low framerate perfomance, can be used for window, where no need high fps. 
-* 2 gfxcapture (available from ffmpeg v.8.0), it's much better and can grab window with good fps.
-u must select available audio device for grab_window source, u can setup your grabbing window app (like MPC HC Player, VLC Player, FRN Client, and etc.) to send audio to any virtual audio cable u have and select it for audio source.
+* go to Multiplex tab and configure your channel list and select types of input source for each channel.
+"grab_window" u can use two methods for grabbing any opened window on your system: 
+* 1 "gdigrab" - old ffmpeg method, but it's low framerate perfomance, can be used for windows, where no need high fps. 
+* 2 "gfxcapture" (available from ffmpeg v.8.0), it's much better and can grab window with good fps.
+u must select available audio device for "grab_window" source, and need setup your grabbing window app (like MPC HC Player, VLC Player, FRN Client, and etc.) to send audio with any virtual audio cable u have and select it for audio source.
 
-* URL_input - can be used for internet radio (use radio checkbox, can be configured with background pic or color, all metadata values and parameters of text size and color send to ffmpeg stdin realtime via CParsed_drawtext_), IPTV link, just paste url and it's will work.
+* "URL_input" - can be used for internet radio (use radio checkbox, can be configured with background pic or color, all metadata values and parameters of text size and color send to ffmpeg stdin realtime via CParsed_drawtext_), IPTV link, just paste url and it's will work.
 
-* UDP_MPTS - can be used for input from any udp multiplex stream, paste udp url and press Get info button, it's will check all available streams and u can select any u want to use for channel.
+* "UDP_MPTS" - can be used for input from any udp multiplex stream, paste udp url and press Get info button, it's will check all available streams and u can select any u want to use for channel.
 
-* media_folder - Browse and select folder with video files u want to broadcast, on selected folder may be 1 file or many files u want, when you select folder, and start encoder, it's will create ch_playlist.txt file with all files included in selected folder and subfolders, use checkbox randomize, if need.
+* "media_folder" - Browse and select folder with video files u want to broadcast, in selected folder may be one or several files u want, when you select folder, and start encoder, it's will create ch_playlist.txt file with all files included in selected folder and subfolders, use checkbox randomize, if need.
 (important rule, u must prepair all files in folder to same codec formats, it's need for stable encoder concat demuxer operation, or u will have problem, when next file in playlist came to input with another parameters, demuxer will crash, your channel will destroy and restart all system).
 
-* input_devices - select any available on your PC HW video and audio devices, like OBS Virtual Camera and Virtual Audio Cable, for example. 
+* "input_devices" - select any available on your PC HW video and audio devices, like "OBS Virtual Camera" and "Virtual Audio Cable", for example. 
 
 * Application have some protect logic for encoder processes, it's can be configured on Monitor tab.
-it's can have other bugs and mistakes, because i'm not programmer and it's project creating and debugging non-stop from september 2025 and still upgrade and fix everyday, some features can work little incorrect, please, use it carefully, change any values with understanding and debug it.
+it's may have other bugs and mistakes, because i'm not programmer and it's project creating and debugging non-stop from september 2025 and still upgrade and fix everyday, some features may work little incorrect, please, use it carefully, change any values with understanding and debug it.
 
 * application support 10bit hevc, u can broadcast with HDR10. libx265 and hevc_nvenc codecs checked, intel QSV codec need to tune parameters for stable work. i don't have AMD GPU, and use standard parameters for codec, but u can setup all parameter u need in box with ffmpeg codec arguments on settings tab, change parameter and save encoder preset for use.
 
