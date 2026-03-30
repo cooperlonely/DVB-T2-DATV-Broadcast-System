@@ -16,7 +16,8 @@ R6WAX Vibe Coding Project for those, who want, but can't.
 
 # 
 
-4 - * go to setup page and change ip of your pluto, or select your type of SDR. select available on your PC video codec type. 
+4 * go to setup tab and change ip of your pluto, or select your type of SDR. 
+* select available on your PC video codec type. 
 * go to Multiplex tab and configure your channel list and select types of inpit source for each
 for the grab_window u can use 2 options for grabbing any opened window on your system: 
 * 1 gdigrab - old ffmpeg method, but it's low framerate perfomance, can be used for window, where no need high fps. 
@@ -27,7 +28,7 @@ u must select available audio device for grab_window source, u can setup your gr
 
 * UDP_MPTS - can be used for input from any udp multiplex stream, paste udp url and press Get info button, it's will check all available streams and u can select any u want to use for channel.
 
-* media_folder - Browse and select folder with video files u want to broadcast, on selected folder may be 1 file or any files u want, when you select folder, and start encoder, it's will create ch_playlist.txt file with all files in selected folders, use checkbox randomize, if need.
+* media_folder - Browse and select folder with video files u want to broadcast, on selected folder may be 1 file or many files u want, when you select folder, and start encoder, it's will create ch_playlist.txt file with all files included in selected folder and subfolders, use checkbox randomize, if need.
 (important rule, u must prepair all files in folder to same codec formats, it's need for stable encoder concat demuxer operation, or u will have problem, when next file in playlist came to input with another parameters, demuxer will crash, your channel will destroy and restart all system).
 
 * input_devices - select any available on your PC HW video and audio devices, like OBS Virtual Camera and Virtual Audio Cable, for example. 
