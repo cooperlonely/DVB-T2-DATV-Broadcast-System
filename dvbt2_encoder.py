@@ -10805,12 +10805,93 @@ class DVBT2EncoderGUI:
         if not hasattr(self, 'multiplex_channels') or not self.multiplex_channels:
             return
         
-        channels = list(self.multiplex_channels.items())
+        # Сохраняем данные каналов
+        channels_data = []
+        for ch_num, data in sorted(self.multiplex_channels.items(), key=lambda x: x[0]):
+            # Сохраняем копию важных данных
+            channel_copy = {
+                'enabled': data['enabled'].get(),
+                'name': data['name'].get(),
+                'source_type': data['source_type'].get(),
+                'video_device': data['video_device'].get(),
+                'audio_device': data['audio_device'].get(),
+                'audio_delay': data['audio_delay'].get(),
+                'capture_method': data['capture_method'].get(),
+                'window_title': data['window_title'].get(),
+                'media_path': data['media_path'].get(),
+                'randomize': data['randomize'].get(),
+                'udp_url': data['udp_url'].get(),
+                'url_input': data['url_input'].get(),
+                'selected_program': data['selected_program'].get(),
+                'is_radio': data['is_radio'].get(),
+                'radio_bg_type': data['radio_bg_type'].get(),
+                'radio_bg_color': data['radio_bg_color'].get(),
+                'radio_bg_picture': data['radio_bg_picture'].get(),
+                'radio_text': data['radio_text'].get(),
+                'radio_show_time': data['radio_show_time'].get(),
+                'radio_text_color': data['radio_text_color'].get(),
+                'radio_text_size': data['radio_text_size'].get(),
+                'radio_time_color': data['radio_time_color'].get(),
+                'radio_time_size': data['radio_time_size'].get(),
+                'show_metadata': data['show_metadata'].get(),
+                'metadata_size': data['metadata_size'].get(),
+                'metadata_color': data['metadata_color'].get(),
+                'metadata_position': data['metadata_position'].get(),
+                'saved_video_pid': data.get('saved_video_pid', ''),
+                'saved_audio_pid': data.get('saved_audio_pid', ''),
+            }
+            channels_data.append(channel_copy)
+            # Удаляем старый виджет
+            data['frame'].destroy()
+        
+        # Очищаем словарь каналов
         self.multiplex_channels.clear()
         
-        for i, (old_num, data) in enumerate(sorted(channels, key=lambda x: x[0]), 1):
-            data['frame'].config(text=f"CH{i}")
-            self.multiplex_channels[i] = data 
+        # Пересоздаем каналы с новыми номерами
+        for i, ch_data in enumerate(channels_data, 1):
+            # Создаем новый виджет канала
+            new_channel = self.add_channel_widget(i)
+            
+            # Восстанавливаем данные
+            new_channel['enabled'].set(ch_data['enabled'])
+            new_channel['name'].set(ch_data['name'])
+            new_channel['source_type'].set(ch_data['source_type'])
+            new_channel['video_device'].set(ch_data['video_device'])
+            new_channel['audio_device'].set(ch_data['audio_device'])
+            new_channel['audio_delay'].set(ch_data['audio_delay'])
+            new_channel['capture_method'].set(ch_data['capture_method'])
+            new_channel['window_title'].set(ch_data['window_title'])
+            new_channel['media_path'].set(ch_data['media_path'])
+            new_channel['randomize'].set(ch_data['randomize'])
+            new_channel['udp_url'].set(ch_data['udp_url'])
+            new_channel['url_input'].set(ch_data['url_input'])
+            new_channel['selected_program'].set(ch_data['selected_program'])
+            new_channel['is_radio'].set(ch_data['is_radio'])
+            new_channel['radio_bg_type'].set(ch_data['radio_bg_type'])
+            new_channel['radio_bg_color'].set(ch_data['radio_bg_color'])
+            new_channel['radio_bg_picture'].set(ch_data['radio_bg_picture'])
+            new_channel['radio_text'].set(ch_data['radio_text'])
+            new_channel['radio_show_time'].set(ch_data['radio_show_time'])
+            new_channel['radio_text_color'].set(ch_data['radio_text_color'])
+            new_channel['radio_text_size'].set(ch_data['radio_text_size'])
+            new_channel['radio_time_color'].set(ch_data['radio_time_color'])
+            new_channel['radio_time_size'].set(ch_data['radio_time_size'])
+            new_channel['show_metadata'].set(ch_data['show_metadata'])
+            new_channel['metadata_size'].set(ch_data['metadata_size'])
+            new_channel['metadata_color'].set(ch_data['metadata_color'])
+            new_channel['metadata_position'].set(ch_data['metadata_position'])
+            new_channel['saved_video_pid'] = ch_data['saved_video_pid']
+            new_channel['saved_audio_pid'] = ch_data['saved_audio_pid']
+            
+            # Пересоздаем контент канала
+            self.create_channel_content(i)
+            
+            # Если это input_devices, обновляем списки устройств
+            if new_channel['source_type'].get() == "input_devices":
+                self.root.after(300, lambda n=i: self.populate_channel_device_lists(n))
+        
+        self.update_add_button_state()
+        self.save_config()
             
     def remove_channel(self, channel_num):
         """Remove a channel"""
@@ -14868,7 +14949,6 @@ class DVBT2EncoderGUI:
         """Quit the application"""
         self.stop_streaming()
         self.stop_modulator()
-        #self.stop_obs()  # Добавьте эту строку
         self.stop_overlay()
         self.save_config()
         self.root.quit()
