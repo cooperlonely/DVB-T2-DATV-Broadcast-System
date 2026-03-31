@@ -14186,7 +14186,7 @@ class DVBT2EncoderGUI:
             if channel_data['enabled'].get():
                 output_port = self.base_multicast_port + ch_num - 1
                 buffer_bytes = self.get_udp_buffer_bytes()
-                cmd += f'-i "udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1" '
+                cmd += f'-i "udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={buffer_bytes}&overrun_nonfatal=1" '
                 active_channels.append((ch_num, channel_data, input_index))
                 input_index += 1
         
