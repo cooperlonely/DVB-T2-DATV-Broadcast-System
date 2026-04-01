@@ -4680,6 +4680,7 @@ class DVBT2EncoderGUI:
         # Codec presets and tunes
         self.codec_presets = {
             "libx265": ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"],
+            "libx264": ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"],
             "hevc_nvenc": ["p1", "p2", "p3", "p4", "p5", "p6", "p7"],
             "h264_nvenc": ["p1", "p2", "p3", "p4", "p5", "p6", "p7"],
             "h264_amf": ["speed", "balanced", "quality"],
@@ -4690,6 +4691,7 @@ class DVBT2EncoderGUI:
         
         self.codec_tunes = {
             "libx265": ["animation", "grain", "fastdecode", "zerolatency", "psnr", "ssim"],
+            "libx264": ["animation", "grain", "fastdecode", "zerolatency", "psnr", "ssim", "film", "stillimage"],        
             "hevc_nvenc": ["hq", "ll", "ull", "lossless"],
             "h264_nvenc": ["hq", "ll", "ull", "lossless"],
             "h264_amf": [],
@@ -4788,13 +4790,13 @@ class DVBT2EncoderGUI:
         self.load_encoder_presets()        
                 
         self.create_gui()        
-        
+
         # После создания GUI применяем выбранный пресет, если он есть
         if self.encoder_preset_name.get() and self.encoder_preset_name.get() in self.encoder_preset_commands:
             self.apply_encoder_preset(self.encoder_preset_name.get())
         else:
             self.update_encoder_command_display()
-        
+        self._updating_from_preset = False  # Добавить флаг
         # Load multiplex channels after GUI is created
         self.root.after(500, self.load_multiplex_channels)
         
@@ -8485,7 +8487,7 @@ class DVBT2EncoderGUI:
         # Row 0: Codec
         ttk.Label(vid_frame, text="Codec:", font=('Arial', 9)).grid(row=0, column=2, sticky='w', pady=2, padx=(8, 2))
         self.codec_combo = ttk.Combobox(vid_frame, textvariable=self.video_codec,
-                    values=["libx265", "hevc_nvenc", "h264_nvenc", "h264_amf", "hevc_amf", "hevc_qsv", "h264_qsv"], 
+                    values=["libx264", "libx265", "hevc_nvenc", "h264_nvenc", "h264_amf", "hevc_amf", "hevc_qsv", "h264_qsv"], 
                     width=12, font=('Arial', 9))
         self.codec_combo.grid(row=0, column=3, sticky='ew', padx=2, pady=2)
         self.codec_combo.bind('<<ComboboxSelected>>', self.on_codec_change)
@@ -8633,9 +8635,10 @@ class DVBT2EncoderGUI:
         self.encoder_preset_combo = ttk.Combobox(btn_frame, textvariable=self.encoder_preset_name,
                                                 width=38, font=('Arial', 9))
         self.encoder_preset_combo.pack(side='left', padx=5)
-        self.encoder_preset_combo.bind('<<ComboboxSelected>>', 
-                                       lambda e: self.apply_encoder_preset(self.encoder_preset_name.get()))
+        self.encoder_preset_combo.bind('<<ComboboxSelected>>', self.on_encoder_preset_selected)
 
+        if self.encoder_preset_name.get():
+            self.encoder_preset_combo.set(self.encoder_preset_name.get())
         # Delete Preset
         del_btn = ttk.Button(btn_frame, text="Delete Preset", 
                             command=self.delete_encoder_preset, width=12)
@@ -8652,13 +8655,17 @@ class DVBT2EncoderGUI:
                 
     def on_encoder_preset_selected(self, event):
         """Обработчик выбора пресета из списка"""
-        preset_name = self.encoder_preset_name.get()
+        # Получаем значение из комбобокса
+        preset_name = self.encoder_preset_combo.get()
         if preset_name and preset_name in self.encoder_preset_commands:
+            # Переменная обновится автоматически через textvariable
+            # Но для надежности установим явно
+            self.encoder_preset_name.set(preset_name)
+            # Применяем пресет
             self.apply_encoder_preset(preset_name)
-            self.save_config()  # Сохраняем выбор
+            self.save_config()
         elif not preset_name:
-            # Если выбрана пустая строка (Default)
-            self.reset_encoder_to_default()                
+            self.reset_encoder_to_default()           
 
     def create_overlay_tab(self, parent):
         """Create overlay settings tab"""
@@ -10033,37 +10040,46 @@ class DVBT2EncoderGUI:
         """Update preset, tune, and profile options based on selected codec"""
         codec = self.video_codec.get()
         
-        # Update presets (как было)
+        # Update presets
         if codec in self.codec_presets:
             if self.video_preset_combo:
                 self.video_preset_combo['values'] = self.codec_presets[codec]
                 if self.video_preset.get() not in self.codec_presets[codec]:
                     self.video_preset.set(self.codec_presets[codec][0])
         
-        # Update tunes (как было)
+        # Update tunes
         if codec in self.codec_tunes:
             if self.tune_combo:
                 self.tune_combo['values'] = self.codec_tunes[codec]
-                if self.video_tune.get() not in self.codec_tunes[codec]:
-                    self.video_tune.set(self.codec_tunes[codec][0] if self.codec_tunes[codec] else "")
+                # Не сбрасываем tune, если текущее значение доступно
+                current_tune = self.video_tune.get()
+                if current_tune and current_tune in self.codec_tunes[codec]:
+                    # Оставляем текущее значение
+                    pass
+                elif self.codec_tunes[codec]:
+                    # Если есть доступные значения, устанавливаем первое
+                    self.video_tune.set(self.codec_tunes[codec][0])
+                else:
+                    # Если нет значений, очищаем
+                    self.video_tune.set("")
         
-        # Update profiles для разных кодеков
+        # Update profiles
         profiles = []
         
         if codec in ["libx265", "hevc_nvenc", "hevc_amf", "hevc_qsv"]:
             profiles = ["main", "main10", "main12", "rext"]
-            # main10 требует 10-битный пиксельный формат
         elif codec in ["h264_nvenc", "h264_amf", "h264_qsv", "libx264"]:
             profiles = ["baseline", "main", "high", "high444"]
-            # high444 требует yuv444p
         else:
-            profiles = []  # Для других кодеков профиль не используется
+            profiles = []
         
         self.profile_combo['values'] = profiles
         
-        # Устанавливаем значение по умолчанию
         if profiles and (not self.video_profile.get() or self.video_profile.get() not in profiles):
             self.video_profile.set(profiles[0])
+        
+        # Обновляем пиксельные форматы после смены кодека
+        self.update_pixel_formats()
                     
     def update_pixel_formats(self, event=None):
         """Update available pixel formats based on selected codec and profile"""
@@ -10073,11 +10089,13 @@ class DVBT2EncoderGUI:
         # Базовые форматы для всех кодеков
         base_formats = ["yuv420p"]
         
-        # Дополнительные форматы для конкретных кодеков [citation:3][citation:4]
-        if codec in ["hevc_qsv", "h264_qsv"]:
+        if codec == "libx264":
+            # H.264 поддерживает множество форматов, но не 10-бит HDR
+            formats = ["yuv420p", "yuv422p", "yuv444p", "yuvj420p", "yuvj422p", "yuvj444p", "nv12", "nv16", "nv21"]
+        elif codec in ["hevc_qsv", "h264_qsv"]:
             formats = base_formats + ["nv12", "p010le", "uyvy422", "yuyv422"]
             if profile == "main10":
-                formats = ["p010le", "yuv420p10le"]  # 10-битные форматы
+                formats = ["p010le", "yuv420p10le"]
         elif codec in ["hevc_nvenc", "h264_nvenc"]:
             formats = base_formats + ["nv12", "p010le", "yuv444p"]
             if profile == "main10":
@@ -10092,15 +10110,13 @@ class DVBT2EncoderGUI:
                 formats = ["yuv420p10le", "yuv422p10le"]
             elif profile == "main12":
                 formats = ["yuv420p12le", "yuv422p12le", "yuv444p12le"]
-        else:  # Другие кодеки
+        else:
             formats = base_formats + ["yuv422p", "yuv444p"]
         
         self.pix_fmt_combo['values'] = formats
         
-        # Устанавливаем совместимый формат
         current_fmt = self.pix_fmt.get()
         if current_fmt not in formats:
-            # Выбираем подходящий формат по умолчанию
             if "yuv420p10le" in formats:
                 self.pix_fmt.set("yuv420p10le")
             elif "p010le" in formats:
@@ -12208,7 +12224,7 @@ class DVBT2EncoderGUI:
         output_port = self.base_multicast_port + channel_num - 1
         
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
-        
+        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)
         # Параметры видео
         codec = self.video_codec.get()
         preset = self.video_preset.get()
@@ -12226,69 +12242,8 @@ class DVBT2EncoderGUI:
         
         cmd = f'"{ffmpeg_path}" -hwaccel auto -re -stream_loop -1 '
         cmd += f'-i "{safe_path}" '
-        cmd += f'-vcodec {codec} '
-        
-        # Codec-specific parameters with HDR support
-        if codec == "libx265":
-            cmd += f'-preset {preset} '
-            if tune:
-                cmd += f'-tune {tune} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            
-            # Базовые параметры (БЕЗ profile)
-            x265_params = f"bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}"
-            
-            # HDR параметры для 10+ бит
-            if is_hdr:
-                x265_params += ":colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr10=1:hdr10-opt=1:repeat-headers=1"
-            
-            cmd += f'-x265-params "{x265_params}" '
-        
-        elif codec in ["hevc_nvenc", "h264_nvenc"]:
-            cmd += f'-preset {preset} '
-            if tune:
-                cmd += f'-tune {tune} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            
-            # HDR10 параметры для hevc_nvenc
-            if is_hdr and codec == "hevc_nvenc":
-                cmd += f'-tier high -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc -color_range limited '
-            
-            cmd += f'-b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
-        
-        elif codec in ["hevc_qsv", "h264_qsv"]:
-            cmd += f'-preset {preset} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            
-            # QSV поддержка HDR
-            if is_hdr and codec == "hevc_qsv":
-                cmd += f'-color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc -color_range limited '
-            
-            cmd += f'-b:v {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
-        
-        elif codec in ["h264_amf", "hevc_amf"]:
-            cmd += f'-quality {preset} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            if codec == "hevc_amf":
-                cmd += f'-g {gop} '
-            cmd += f'-b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
-        
-        # Общие параметры видео
-        cmd += f'-pix_fmt {pix_fmt} -s {resolution} -g {gop} -r {fps} -aspect {aspect} '
-        
-        # Аудио параметры
-        cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
-        cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
+        if encoder_cmd:
+            cmd += encoder_cmd + " "
         
         # Метаданные
         cmd += f'-metadata service_provider="EMERGENCY" '
@@ -13392,11 +13347,13 @@ class DVBT2EncoderGUI:
             if custom_options:
                 cmd_parts.append(custom_options)
             
+            cmd_parts.append(f"-pix_fmt {pix_fmt}")
+            cmd_parts.append(f"-aspect {aspect}")
+            
             # Формируем x265-params БЕЗ битрейта
             x265_params = []
             if profile:
                 x265_params.append(f"profile={profile}")
-            # HDR параметры для 10+ бит
             if is_hdr:
                 x265_params.append("colorprim=bt2020")
                 x265_params.append("transfer=smpte2084")
@@ -13407,6 +13364,25 @@ class DVBT2EncoderGUI:
             
             if x265_params:
                 cmd_parts.append(f'-x265-params "{":".join(x265_params)}"')
+        
+        elif codec == "libx264":
+            cmd_parts.append(f"-vcodec {codec}")
+            cmd_parts.append(f"-preset {preset}")
+            if tune:
+                cmd_parts.append(f"-tune {tune}")
+            if custom_options:
+                cmd_parts.append(custom_options)
+            
+            cmd_parts.append(f"-pix_fmt {pix_fmt}")
+            cmd_parts.append(f"-aspect {aspect}")
+            
+            # Формируем x264-params БЕЗ битрейта
+            x264_params = []
+            if profile:
+                x264_params.append(f"profile={profile}")
+            
+            if x264_params:
+                cmd_parts.append(f'-x264-params "{":".join(x264_params)}"')
         
         elif codec in ["hevc_nvenc", "h264_nvenc"]:
             cmd_parts.append(f"-vcodec {codec}")
@@ -13419,7 +13395,6 @@ class DVBT2EncoderGUI:
                 cmd_parts.append(custom_options)
             cmd_parts.append(f"-pix_fmt {pix_fmt}")
             cmd_parts.append(f"-aspect {aspect}")
-            # HDR параметры для NVENC
             if is_hdr and codec == "hevc_nvenc":
                 cmd_parts.append("-tier high")
                 cmd_parts.append("-color_primaries bt2020")
@@ -13436,7 +13411,6 @@ class DVBT2EncoderGUI:
                 cmd_parts.append(custom_options)
             cmd_parts.append(f"-pix_fmt {pix_fmt}")
             cmd_parts.append(f"-aspect {aspect}")
-            # HDR параметры для QSV
             if is_hdr and codec == "hevc_qsv":
                 cmd_parts.append("-color_primaries bt2020")
                 cmd_parts.append("-color_trc smpte2084")
@@ -13460,12 +13434,11 @@ class DVBT2EncoderGUI:
         cmd_parts.append(f"-g {gop}")
         cmd_parts.append(f"-r {fps}")
         
-        # Audio parameters (без битрейта)
+        # Audio parameters
         cmd_parts.append(f"-c:a {audio_codec}")
         cmd_parts.append(f"-ar {audio_sample_rate}")
         cmd_parts.append(f"-ac {audio_channels}")
         
-        # Возвращаем объединенную строку
         return " ".join(cmd_parts)
 
     def load_encoder_presets(self):
@@ -13477,7 +13450,7 @@ class DVBT2EncoderGUI:
         
         for filename in os.listdir(self.encoder_presets_dir):
             if filename.endswith('.json'):
-                preset_name = filename[:-5]  # Убираем .json
+                preset_name = filename[:-5]
                 filepath = os.path.join(self.encoder_presets_dir, filename)
                 try:
                     with open(filepath, 'r', encoding='utf-8') as f:
@@ -13487,22 +13460,21 @@ class DVBT2EncoderGUI:
                 except Exception as e:
                     self.log_message(f"Error loading preset {preset_name}: {e}", "buffer")
         
-        # Обновляем выпадающий список, если GUI уже создан
+        # Обновляем выпадающий список
         if hasattr(self, 'encoder_preset_combo') and self.encoder_preset_combo:
             presets_list = list(self.encoder_preset_commands.keys())
             self.encoder_preset_combo['values'] = presets_list
             
-            # Проверяем, есть ли выбранный пресет в загруженных
+            # Восстанавливаем выбранный пресет
             current_preset = self.encoder_preset_name.get()
             if current_preset and current_preset in presets_list:
-                # Выбранный пресет существует, обновляем отображение в комбобоксе
+                # Принудительно обновляем комбобокс
                 self.encoder_preset_combo.set(current_preset)
             else:
-                # Выбранного пресета нет в списке, сбрасываем
                 if current_preset:
                     self.encoder_preset_name.set("")
-                    self.encoder_preset_combo.set("")
-
+                self.encoder_preset_combo.set("")
+                
     def save_encoder_preset(self, preset_name):
         """Сохраняет текущую команду как пресет"""
         if not preset_name or not preset_name.strip():
@@ -13567,6 +13539,10 @@ class DVBT2EncoderGUI:
         if not preset_name or preset_name not in self.encoder_preset_commands:
             # Если пресет не выбран, показываем базовую команду
             self.update_encoder_command_display()
+            # Очищаем комбобокс если нужно
+            if hasattr(self, 'encoder_preset_combo') and self.encoder_preset_combo.get():
+                self.encoder_preset_combo.set("")
+                self.encoder_preset_name.set("")
             return
         
         command = self.encoder_preset_commands[preset_name]
@@ -13575,6 +13551,17 @@ class DVBT2EncoderGUI:
         if self.encoder_command_widget:
             self.encoder_command_widget.delete("1.0", tk.END)
             self.encoder_command_widget.insert("1.0", command)
+        
+        # Принудительно обновляем комбобокс и переменную
+        if hasattr(self, 'encoder_preset_combo'):
+            # Убеждаемся, что значение есть в списке
+            current_values = list(self.encoder_preset_combo['values'])
+            if preset_name not in current_values:
+                # Если нет, обновляем список
+                self.encoder_preset_combo['values'] = list(self.encoder_preset_commands.keys())
+            # Устанавливаем значение
+            self.encoder_preset_combo.set(preset_name)
+            self.encoder_preset_name.set(preset_name)
         
         # Парсим команду и обновляем GUI-контролы
         self.parse_and_update_gui_from_command(command)
@@ -13585,166 +13572,171 @@ class DVBT2EncoderGUI:
         """Парсит команду и обновляет соответствующие GUI переменные"""
         import shlex
         import re
-        
-        # Разбираем команду на части
+
+        self._updating_from_preset = True  # Устанавливаем флаг перед обновлением
         try:
-            parts = shlex.split(command) if isinstance(command, str) else []
-        except:
-            # Если shlex не справляется, пробуем простой split
-            parts = command.split()
         
-        # Временные переменные для хранения найденных значений
-        found = {
-            'vcodec': None, 'preset': None, 'tune': None, 'profile': None,
-            'pix_fmt': None, 'aspect': None, 's': None, 'r': None, 'g': None,
-            'acodec': None, 'ar': None, 'ac': None, 'custom': [],
-            'x265_params': None
-        }
-        
-        i = 0
-        while i < len(parts):
-            part = parts[i]
-            if part == '-vcodec' and i + 1 < len(parts):
-                found['vcodec'] = parts[i + 1]
-                i += 2
-            elif part == '-c:v' and i + 1 < len(parts):
-                found['vcodec'] = parts[i + 1]
-                i += 2
-            elif part == '-preset' and i + 1 < len(parts):
-                found['preset'] = parts[i + 1]
-                i += 2
-            elif part == '-tune' and i + 1 < len(parts):
-                found['tune'] = parts[i + 1]
-                i += 2
-            elif part == '-profile:v' and i + 1 < len(parts):
-                found['profile'] = parts[i + 1]
-                i += 2
-            elif part == '-pix_fmt' and i + 1 < len(parts):
-                found['pix_fmt'] = parts[i + 1]
-                i += 2
-            elif part == '-aspect' and i + 1 < len(parts):
-                found['aspect'] = parts[i + 1]
-                i += 2
-            elif part == '-s' and i + 1 < len(parts):
-                found['s'] = parts[i + 1]
-                i += 2
-            elif part == '-r' and i + 1 < len(parts):
-                found['r'] = parts[i + 1]
-                i += 2
-            elif part == '-g' and i + 1 < len(parts):
-                found['g'] = parts[i + 1]
-                i += 2
-            elif part == '-c:a' and i + 1 < len(parts):
-                found['acodec'] = parts[i + 1]
-                i += 2
-            elif part == '-ar' and i + 1 < len(parts):
-                found['ar'] = parts[i + 1]
-                i += 2
-            elif part == '-ac' and i + 1 < len(parts):
-                found['ac'] = parts[i + 1]
-                i += 2
-            elif part == '-x265-params' and i + 1 < len(parts):
-                found['x265_params'] = parts[i + 1].strip('"')
-                # Парсим x265-params для извлечения профиля
-                for param in found['x265_params'].split(':'):
-                    if '=' in param:
-                        key, val = param.split('=', 1)
-                        if key == 'profile':
-                            found['profile'] = val
-                i += 2
-            elif part == '-quality' and i + 1 < len(parts):
-                # Для AMF кодеков
-                found['preset'] = parts[i + 1]
-                i += 2
-            elif part == '-tier' and i + 1 < len(parts):
-                # Для NVENC HDR
-                i += 2
-            elif part == '-color_primaries' and i + 1 < len(parts):
-                # HDR параметр, пропускаем
-                i += 2
-            elif part == '-color_trc' and i + 1 < len(parts):
-                i += 2
-            elif part == '-colorspace' and i + 1 < len(parts):
-                i += 2
-            elif part == '-color_range' and i + 1 < len(parts):
-                i += 2
-            elif part.startswith('-') and len(part) > 1:
-                # Другие параметры собираем как custom
-                if part not in ['-vcodec', '-c:v', '-preset', '-tune', '-profile:v', '-pix_fmt', 
-                                '-aspect', '-s', '-r', '-g', '-c:a', '-ar', '-ac', '-x265-params',
-                                '-quality', '-tier', '-color_primaries', '-color_trc', '-colorspace', 
-                                '-color_range', '-b:v', '-minrate', '-maxrate', '-bufsize', '-b:a']:
-                    found['custom'].append(part)
-                    if i + 1 < len(parts) and not parts[i + 1].startswith('-'):
-                        found['custom'].append(parts[i + 1])
-                        i += 2
+            # Разбираем команду на части
+            try:
+                parts = shlex.split(command) if isinstance(command, str) else []
+            except:
+                # Если shlex не справляется, пробуем простой split
+                parts = command.split()
+            
+            # Временные переменные для хранения найденных значений
+            found = {
+                'vcodec': None, 'preset': None, 'tune': None, 'profile': None,
+                'pix_fmt': None, 'aspect': None, 's': None, 'r': None, 'g': None,
+                'acodec': None, 'ar': None, 'ac': None, 'custom': [],
+                'x265_params': None
+            }
+            
+            i = 0
+            while i < len(parts):
+                part = parts[i]
+                if part == '-vcodec' and i + 1 < len(parts):
+                    found['vcodec'] = parts[i + 1]
+                    i += 2
+                elif part == '-c:v' and i + 1 < len(parts):
+                    found['vcodec'] = parts[i + 1]
+                    i += 2
+                elif part == '-preset' and i + 1 < len(parts):
+                    found['preset'] = parts[i + 1]
+                    i += 2
+                elif part == '-tune' and i + 1 < len(parts):
+                    found['tune'] = parts[i + 1]
+                    i += 2
+                elif part == '-profile:v' and i + 1 < len(parts):
+                    found['profile'] = parts[i + 1]
+                    i += 2
+                elif part == '-pix_fmt' and i + 1 < len(parts):
+                    found['pix_fmt'] = parts[i + 1]
+                    i += 2
+                elif part == '-aspect' and i + 1 < len(parts):
+                    found['aspect'] = parts[i + 1]
+                    i += 2
+                elif part == '-s' and i + 1 < len(parts):
+                    found['s'] = parts[i + 1]
+                    i += 2
+                elif part == '-r' and i + 1 < len(parts):
+                    found['r'] = parts[i + 1]
+                    i += 2
+                elif part == '-g' and i + 1 < len(parts):
+                    found['g'] = parts[i + 1]
+                    i += 2
+                elif part == '-c:a' and i + 1 < len(parts):
+                    found['acodec'] = parts[i + 1]
+                    i += 2
+                elif part == '-ar' and i + 1 < len(parts):
+                    found['ar'] = parts[i + 1]
+                    i += 2
+                elif part == '-ac' and i + 1 < len(parts):
+                    found['ac'] = parts[i + 1]
+                    i += 2
+                elif part == '-x265-params' and i + 1 < len(parts):
+                    found['x265_params'] = parts[i + 1].strip('"')
+                    # Парсим x265-params для извлечения профиля
+                    for param in found['x265_params'].split(':'):
+                        if '=' in param:
+                            key, val = param.split('=', 1)
+                            if key == 'profile':
+                                found['profile'] = val
+                    i += 2
+                elif part == '-quality' and i + 1 < len(parts):
+                    # Для AMF кодеков
+                    found['preset'] = parts[i + 1]
+                    i += 2
+                elif part == '-tier' and i + 1 < len(parts):
+                    # Для NVENC HDR
+                    i += 2
+                elif part == '-color_primaries' and i + 1 < len(parts):
+                    # HDR параметр, пропускаем
+                    i += 2
+                elif part == '-color_trc' and i + 1 < len(parts):
+                    i += 2
+                elif part == '-colorspace' and i + 1 < len(parts):
+                    i += 2
+                elif part == '-color_range' and i + 1 < len(parts):
+                    i += 2
+                elif part.startswith('-') and len(part) > 1:
+                    # Другие параметры собираем как custom
+                    if part not in ['-vcodec', '-c:v', '-preset', '-tune', '-profile:v', '-pix_fmt', 
+                                    '-aspect', '-s', '-r', '-g', '-c:a', '-ar', '-ac', '-x265-params',
+                                    '-quality', '-tier', '-color_primaries', '-color_trc', '-colorspace', 
+                                    '-color_range', '-b:v', '-minrate', '-maxrate', '-bufsize', '-b:a']:
+                        found['custom'].append(part)
+                        if i + 1 < len(parts) and not parts[i + 1].startswith('-'):
+                            found['custom'].append(parts[i + 1])
+                            i += 2
+                        else:
+                            i += 1
                     else:
                         i += 1
                 else:
                     i += 1
-            else:
-                i += 1
-        
-        # Применяем найденные значения к GUI
-        if found['vcodec'] and found['vcodec'] in self.codec_presets:
-            self.video_codec.set(found['vcodec'])
-            self.update_codec_settings()  # Обновляем списки пресетов
-        
-        if found['preset']:
-            # Проверяем, что пресет доступен для выбранного кодекса
-            codec = self.video_codec.get()
-            if codec in self.codec_presets and found['preset'] in self.codec_presets[codec]:
-                self.video_preset.set(found['preset'])
-            elif codec in ['h264_amf', 'hevc_amf'] and found['preset'] in ['speed', 'balanced', 'quality']:
-                self.video_preset.set(found['preset'])
-        
-        if found['tune']:
-            codec = self.video_codec.get()
-            if codec in self.codec_tunes and found['tune'] in self.codec_tunes[codec]:
-                self.video_tune.set(found['tune'])
-        
-        if found['profile']:
-            self.video_profile.set(found['profile'])
-            self.update_pixel_formats()  # Обновляем форматы пикселей
-        
-        if found['pix_fmt']:
-            self.pix_fmt.set(found['pix_fmt'])
-            self.update_mode_indicator()
-        
-        if found['aspect']:
-            self.video_aspect.set(found['aspect'])
-        
-        if found['s']:
-            self.video_resolution.set(found['s'])
-        
-        if found['r']:
-            self.video_fps.set(found['r'])
-        
-        if found['g']:
-            self.video_gop.set(found['g'])
-        
-        if found['acodec']:
-            self.audio_codec.set(found['acodec'])
-            self.update_audio_settings()
-        
-        if found['ar']:
-            self.audio_sample_rate.set(found['ar'])
-        
-        if found['ac']:
-            # Конвертируем число каналов в название
-            channel_map = {"1": "mono", "2": "stereo", "6": "5.1"}
-            channel_name = channel_map.get(found['ac'], "stereo")
-            self.audio_channels.set(channel_name)
-        
-        # Custom options
-        if found['custom']:
-            self.custom_options.set(" ".join(found['custom']))
-        
-        # Сохраняем конфигурацию
-        self.save_config()
-        
-        # Обновляем отображение команды
-        self.update_encoder_command_display()
+            
+            # Применяем найденные значения к GUI
+            if found['vcodec'] and found['vcodec'] in self.codec_presets:
+                self.video_codec.set(found['vcodec'])
+                self.update_codec_settings()  # Обновляем списки пресетов
+            
+            if found['preset']:
+                # Проверяем, что пресет доступен для выбранного кодекса
+                codec = self.video_codec.get()
+                if codec in self.codec_presets and found['preset'] in self.codec_presets[codec]:
+                    self.video_preset.set(found['preset'])
+                elif codec in ['h264_amf', 'hevc_amf'] and found['preset'] in ['speed', 'balanced', 'quality']:
+                    self.video_preset.set(found['preset'])
+            
+            if found['tune']:
+                codec = self.video_codec.get()
+                if codec in self.codec_tunes and found['tune'] in self.codec_tunes[codec]:
+                    self.video_tune.set(found['tune'])
+            
+            if found['profile']:
+                self.video_profile.set(found['profile'])
+                self.update_pixel_formats()  # Обновляем форматы пикселей
+            
+            if found['pix_fmt']:
+                self.pix_fmt.set(found['pix_fmt'])
+                self.update_mode_indicator()
+            
+            if found['aspect']:
+                self.video_aspect.set(found['aspect'])
+            
+            if found['s']:
+                self.video_resolution.set(found['s'])
+            
+            if found['r']:
+                self.video_fps.set(found['r'])
+            
+            if found['g']:
+                self.video_gop.set(found['g'])
+            
+            if found['acodec']:
+                self.audio_codec.set(found['acodec'])
+                self.update_audio_settings()
+            
+            if found['ar']:
+                self.audio_sample_rate.set(found['ar'])
+            
+            if found['ac']:
+                # Конвертируем число каналов в название
+                channel_map = {"1": "mono", "2": "stereo", "6": "5.1"}
+                channel_name = channel_map.get(found['ac'], "stereo")
+                self.audio_channels.set(channel_name)
+            
+            # Custom options
+            if found['custom']:
+                self.custom_options.set(" ".join(found['custom']))
+            
+            # Сохраняем конфигурацию
+            self.save_config()
+            # Обновляем отображение команды
+            self.update_encoder_command_display()
+        finally:
+            self._updating_from_preset = False  # Сбрасываем флаг        
+
 
     def update_encoder_command_display(self):
         """Обновляет текстовое поле с командой на основе текущих настроек"""
@@ -13767,9 +13759,16 @@ class DVBT2EncoderGUI:
 
     def on_encoder_gui_change(self, *args):
         """Обработчик изменений в GUI - обновляет отображение команды"""
-        # Если выбран пресет, не перезаписываем его автоматически
-        if self.encoder_preset_name.get():
+        # Если обновление идет из пресета, не сбрасываем
+        if getattr(self, '_updating_from_preset', False):
             return
+        
+        # Если выбран пресет, сбрасываем его
+        if self.encoder_preset_name.get():
+            self.encoder_preset_name.set("")
+            if hasattr(self, 'encoder_preset_combo'):
+                self.encoder_preset_combo.set("")
+            self.log_message("Preset cleared due to manual setting change", "buffer")
         
         # Обновляем отображение базовой команды
         self.update_encoder_command_display()
@@ -13855,8 +13854,11 @@ class DVBT2EncoderGUI:
         
         name_entry.bind('<Return>', lambda e: do_save()) 
 
-    def get_encoder_command_with_bitrate(self, video_bitrate_kbps, video_bufsize_kbps):
+    def get_encoder_command_with_bitrate(self, video_bitrate_kbps):
         """Возвращает полную команду кодирования с подставленным битрейтом"""
+        # Рассчитываем bufsize как половину от битрейта (как в оригинальной логике)
+        video_bufsize_kbps = max(50, video_bitrate_kbps // 2)
+        
         # Получаем базовую команду из текстового поля или из настроек
         if hasattr(self, 'encoder_command_widget') and self.encoder_command_widget:
             base_command = self.encoder_command_widget.get("1.0", tk.END).strip()
@@ -13870,27 +13872,32 @@ class DVBT2EncoderGUI:
         codec = self.video_codec.get()
         import re
         
-        # Для libx265 нужно вставить битрейт в x265-params
+        # Для libx265 и libx264 нужно вставить битрейт в x265-params или x264-params
         if codec == "libx265":
-            # Ищем строку с -x265-params
             match = re.search(r'-x265-params\s+"([^"]*)"', base_command)
             if match:
                 params = match.group(1)
-                # Добавляем битрейт в начало
                 new_params = f"bitrate={video_bitrate_kbps}:vbv-maxrate={video_bitrate_kbps}:vbv-bufsize={video_bufsize_kbps}"
                 if params:
                     new_params += f":{params}"
-                # Заменяем
                 base_command = base_command.replace(match.group(0), f'-x265-params "{new_params}"')
             else:
-                # Если нет x265-params, добавляем
                 base_command += f' -x265-params "bitrate={video_bitrate_kbps}:vbv-maxrate={video_bitrate_kbps}:vbv-bufsize={video_bufsize_kbps}"'
+        
+        elif codec == "libx264":
+            match = re.search(r'-x264-params\s+"([^"]*)"', base_command)
+            if match:
+                params = match.group(1)
+                new_params = f"bitrate={video_bitrate_kbps}:vbv-maxrate={video_bitrate_kbps}:vbv-bufsize={video_bufsize_kbps}"
+                if params:
+                    new_params += f":{params}"
+                base_command = base_command.replace(match.group(0), f'-x264-params "{new_params}"')
+            else:
+                base_command += f' -x264-params "bitrate={video_bitrate_kbps}:vbv-maxrate={video_bitrate_kbps}:vbv-bufsize={video_bufsize_kbps}"'
         
         # Для остальных кодеков добавляем параметры битрейта
         elif codec in ["hevc_nvenc", "h264_nvenc", "hevc_qsv", "h264_qsv", "h264_amf", "hevc_amf"]:
-            # Проверяем, есть ли уже параметры битрейта
             if '-b:v' not in base_command:
-                # Добавляем параметры битрейта в конец, перед -c:a или в конец
                 match = re.search(r'(-c:a\s+\S+)', base_command)
                 if match:
                     insert_pos = match.start()
@@ -13928,7 +13935,7 @@ class DVBT2EncoderGUI:
         
         # Получаем команду кодирования с битрейтом
         video_bufsize = int(self.video_bufsize.get())
-        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate, video_bufsize)
+        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)
         
         # Формируем полную команду
         cmd = (
@@ -13966,6 +13973,12 @@ class DVBT2EncoderGUI:
     def build_channel_ffmpeg_command(self, channel_num, channel_data, output_port):
         """Build FFmpeg command for individual channel"""
         ffmpeg_path = self.ffmpeg_path
+        
+        # Получаем битрейты для этого канала
+        video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
+        
+        # Получаем команду кодирования с подставленным битрейтом
+        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)        
         
         cmd = f'"{ffmpeg_path}" -hwaccel auto -hide_banner '
         
@@ -14073,87 +14086,12 @@ class DVBT2EncoderGUI:
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
         video_per_channel = video_bitrate
         
-        # Video parameters
-        codec = self.video_codec.get()
-        preset = self.video_preset.get()
-        tune = self.video_tune.get()
-        profile = self.video_profile.get()
-        pix_fmt = self.pix_fmt.get()
-        aspect = self.video_aspect.get()
-        gop = self.video_gop.get()
-        resolution = self.video_resolution.get()
-        fps = self.video_fps.get()
-        custom_options = self.custom_options.get()
-        
-        # Определяем HDR режим
-        is_hdr = pix_fmt in ["yuv420p10le", "p010le", "p016le", "yuv422p10le", "yuv444p10le"]
-        
-        cmd += f'-vcodec {codec} '
-        
-        # Codec-specific parameters with HDR support
-        if codec == "libx265":
-            cmd += f'-preset {preset} '
-            if tune:
-                cmd += f'-tune {tune} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            
-            # Базовые параметры (БЕЗ profile)
-            x265_params = f"bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}"
-            
-            # HDR параметры для 10+ бит
-            if is_hdr:
-                x265_params += ":colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:hdr10=1:hdr10-opt=1:repeat-headers=1"
-            
-            cmd += f'-x265-params "{x265_params}" '
-        
-        elif codec in ["hevc_nvenc", "h264_nvenc"]:
-            cmd += f'-preset {preset} '
-            if tune:
-                cmd += f'-tune {tune} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            cmd += f'-pix_fmt {pix_fmt} -aspect {aspect} '
-            
-            # HDR10 параметры для hevc_nvenc
-            if is_hdr and codec == "hevc_nvenc":
-                cmd += f'-tier high -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc -color_range limited '
-            
-            cmd += f'-b:v {video_per_channel}k -minrate {video_per_channel}k -maxrate {video_per_channel}k -bufsize {video_per_channel//2}k '
-        
-        elif codec in ["hevc_qsv", "h264_qsv"]:
-            cmd += f'-preset {preset} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            cmd += f'-pix_fmt {pix_fmt} -aspect {aspect} '
-            
-            # QSV поддержка HDR
-            if is_hdr and codec == "hevc_qsv":
-                cmd += f'-color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc -color_range limited '
-            
-            cmd += f'-b:v {video_per_channel}k -maxrate {video_per_channel}k -bufsize {video_per_channel//2}k '
-        
-        elif codec in ["h264_amf", "hevc_amf"]:
-            cmd += f'-quality {preset} '
-            if profile:
-                cmd += f'-profile:v {profile} '
-            if custom_options:
-                cmd += f'{custom_options} '
-            cmd += f'-pix_fmt {pix_fmt} -aspect {aspect} '
-            if codec == "hevc_amf":
-                cmd += f'-g {gop} '
-            cmd += f'-b:v {video_per_channel}k -minrate {video_per_channel}k -maxrate {video_per_channel}k -bufsize {video_per_channel//2}k '
-        
-        # Common video parameters
-        cmd += f'-s {resolution} -g {gop} -r {fps} '
-        
-        # Audio encoding
-        cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
-        cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
+        if encoder_cmd:
+            cmd += encoder_cmd + " "
+        else:
+            # Fallback если encoder_cmd пустой
+            self.log_message(f"CH{channel_num}: Warning - encoder command is empty", "buffer")
+            return None        
         
         # Metadata
         if source_type == "grab_window" and 'service_name_override' in channel_data:
@@ -14298,7 +14236,6 @@ class DVBT2EncoderGUI:
         """Создает команду для радио-канала с filter_complex и stdin с поддержкой пресетов"""
         
         ffmpeg_path = self.ffmpeg_path
-        
         # Используем переданные параметры
         radio_text = channel_data['radio_text'].get()
         radio_text_safe = radio_text.replace("'", "'\\''").replace(':', '\\:')
@@ -14312,10 +14249,9 @@ class DVBT2EncoderGUI:
         
         # Получаем битрейты для этого канала
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
-        video_bufsize = int(self.video_bufsize.get())
         
         # Получаем команду кодирования с подставленным битрейтом (из пресета или из настроек)
-        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate, video_bufsize)
+        encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)
         
         # Параметры, которые нужно исключить из encoder_cmd при добавлении filter_complex
         # (потому что они будут добавлены позже с правильным порядком)
@@ -14408,26 +14344,7 @@ class DVBT2EncoderGUI:
         # Но нужно убедиться, что команда кодирования не содержит конфликтующих параметров
         # Разбиваем encoder_cmd на части и добавляем их
         if encoder_cmd:
-            # Убираем возможные дублирующиеся параметры
-            cmd_parts = encoder_cmd.split()
-            
-            # Фильтруем параметры, которые могут конфликтовать с filter_complex
-            skip_next = False
-            for i, part in enumerate(cmd_parts):
-                if skip_next:
-                    skip_next = False
-                    continue
-                if part in ['-filter_complex', '-vf', '-lavfi']:
-                    skip_next = True
-                    continue
-                if part == '-map':
-                    skip_next = True
-                    continue
-                cmd += f"{part} "
-        
-        # Добавляем параметры аудио битрейта (если их нет в encoder_cmd)
-        if '-b:a' not in encoder_cmd:
-            cmd += f'-b:a {audio_bitrate} '
+            cmd += encoder_cmd + " "
         
         # Метаданные
         service_name = channel_data['name'].get() or f"Radio_{channel_num}"
