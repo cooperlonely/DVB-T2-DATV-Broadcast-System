@@ -4604,6 +4604,10 @@ class DVBT2EncoderGUI:
         self.video_aspect = tk.StringVar(value="16:9")
         self.video_profile = tk.StringVar(value="")        
         self.null_packets_percent = tk.DoubleVar(value=10.0)  # 10%  
+
+        self.video_muxdelay = tk.DoubleVar(value=0.5)
+        self.video_muxpreload = tk.DoubleVar(value=0.5)
+        self.video_buf_factor = tk.DoubleVar(value=50.0)  # 50% от битрейта = /2
         
         # FFmpeg UDP Buffer Size control (в МБ, с шагом 0.5)
         self.udp_buffer_size = tk.DoubleVar(value=5.0)  #  5 МБ
@@ -5620,8 +5624,8 @@ class DVBT2EncoderGUI:
 
         # Привязка к изменению числовых полей
         numeric_variables = [
-            self.udp_input_port, self.udp_output_port, self.muxrate,
-            self.video_bitrate, self.video_bufsize, self.video_gop,
+            self.udp_input_port, self.udp_output_port, self.muxrate, self.video_buf_factor,
+            self.video_bitrate, self.video_bufsize, self.video_gop, self.video_muxdelay, self.video_muxpreload,
             self.target_buffer, self.min_buffer, self.max_buffer, self.udp_buffer_size, self.null_packets_percent
         ]
         
@@ -8482,6 +8486,11 @@ class DVBT2EncoderGUI:
         ttk.Label(vid_frame, text="GOP:", font=('Arial', 9)).grid(row=3, column=0, sticky='w', pady=2, padx=(0, 2))
         self.gop_entry = ttk.Entry(vid_frame, textvariable=self.video_gop, width=15, font=('Arial', 9))
         self.gop_entry.grid(row=3, column=1, sticky='ew', padx=2, pady=2)
+        
+        ttk.Label(vid_frame, text="Muxdelay:", font=('Arial', 9)).grid(row=4, column=0, sticky='w', pady=2, padx=(0, 2))
+        muxdelay_spin = ttk.Spinbox(vid_frame, from_=0.0, to=2.0, increment=0.1,
+                                    textvariable=self.video_muxdelay, width=15, font=('Arial', 9))
+        muxdelay_spin.grid(row=4, column=1, sticky='ew', padx=2, pady=2)        
 
         # ===== СТОЛБЕЦ 2 =====
         # Row 0: Codec
@@ -8507,6 +8516,12 @@ class DVBT2EncoderGUI:
         self.profile_combo = ttk.Combobox(vid_frame, textvariable=self.video_profile, width=12, font=('Arial', 9))
         self.profile_combo.grid(row=3, column=3, sticky='ew', padx=2, pady=2)
         self.profile_combo.bind('<<ComboboxSelected>>', self.on_profile_change)
+        
+        ttk.Label(vid_frame, text="Muxpreload:", font=('Arial', 9)).grid(row=4, column=2, sticky='w', pady=2, padx=(8, 2))
+        muxpreload_spin = ttk.Spinbox(vid_frame, from_=0.0, to=2.0, increment=0.1,
+                                      textvariable=self.video_muxpreload, width=15, font=('Arial', 9))
+        muxpreload_spin.grid(row=4, column=3, sticky='ew', padx=2, pady=2)
+        
         # ===== СТОЛБЕЦ 3 =====
         # Row 0: Pixel Format
         ttk.Label(vid_frame, text="Pixel fmt:", font=('Arial', 9)).grid(row=0, column=4, sticky='w', pady=2, padx=(8, 2))
@@ -8530,17 +8545,25 @@ class DVBT2EncoderGUI:
         bufsize_frame = ttk.Frame(vid_frame)
         bufsize_frame.grid(row=2, column=5, sticky='ew', padx=2, pady=2)
         bufsize_frame.columnconfigure(0, weight=1)
-        self.video_bufsize_spinbox = ttk.Spinbox(bufsize_frame, from_=50, to=50000, 
+        self.video_bufsize_spinbox = ttk.Spinbox(bufsize_frame, from_=50, to=100000, 
                                                 textvariable=self.video_bufsize, 
                                                 width=8, font=('Arial', 9), 
                                                 command=self.on_video_bufsize_change)
         self.video_bufsize_spinbox.grid(row=0, column=0, sticky='ew')
         ttk.Label(bufsize_frame, text="kbps", font=('Arial', 8)).grid(row=0, column=1, padx=(2, 0))
+        
+        ttk.Label(vid_frame, text="Buf Factor:", font=('Arial', 9)).grid(row=3, column=4, sticky='w', pady=2, padx=(8, 2))
+        buf_factor_frame = ttk.Frame(vid_frame)
+        buf_factor_frame.grid(row=3, column=5, sticky='ew', padx=2, pady=2)
+        buf_factor_spin = ttk.Spinbox(buf_factor_frame, from_=20, to=200, increment=10,
+                                       textvariable=self.video_buf_factor, width=8, font=('Arial', 9))
+        buf_factor_spin.pack(side='left')
+        ttk.Label(buf_factor_frame, text="%", font=('Arial', 8)).pack(side='left', padx=(2, 0))        
 
         # Row 3: Custom Options
-        ttk.Label(vid_frame, text="Custom opts:", font=('Arial', 9)).grid(row=3, column=4, sticky='w', pady=2, padx=(8, 2))
+        ttk.Label(vid_frame, text="Custom opts:", font=('Arial', 9)).grid(row=4, column=4, sticky='w', pady=2, padx=(8, 2))
         self.custom_options_entry = ttk.Entry(vid_frame, textvariable=self.custom_options, width=20, font=('Arial', 9))
-        self.custom_options_entry.grid(row=3, column=5, sticky='ew', padx=2, pady=2)
+        self.custom_options_entry.grid(row=4, column=5, sticky='ew', padx=2, pady=2)
 
         # Initialize pixel format combobox
         self.update_pixel_formats()    
@@ -9906,6 +9929,7 @@ class DVBT2EncoderGUI:
             self.buffer_thread.join(timeout=3)
             self.buffer_thread = None        
         self.buffer_status.set("Stopped")
+        
         # ⭐ СБРАСЫВАЕМ СТАТИСТИКУ UDP БУФФЕРА
         self.buffer_input_bitrate.set("0")
         self.buffer_output_bitrate.set("0")
@@ -10146,35 +10170,35 @@ class DVBT2EncoderGUI:
         self.save_config()
             
     def on_video_bitrate_change(self):
-        """Update video bufsize when video bitrate changes"""
+        """Update video bufsize and buf_factor when video bitrate changes manually"""
         try:
             bitrate = int(self.video_bitrate.get())
-            bufsize = max(50, bitrate // 2)
-            self.video_bufsize.set(str(bufsize))
-            
-            # Устанавливаем флаг для пересчета max_buffer
+            bufsize = int(self.video_bufsize.get())
+            # Пересчитываем buf_factor на основе ручных значений
+            if bitrate > 0:
+                new_factor = (bufsize / bitrate) * 100
+                new_factor = max(20, min(200, new_factor))  # Ограничиваем 20-200%
+                self.video_buf_factor.set(round(new_factor))
             self._should_recalc_max = True
-            
-            # Update buffer settings
             self.update_buffer_settings()
             self.save_config()
         except:
             pass
 
     def on_video_bufsize_change(self):
-        """Update video bitrate when bufsize changes"""
+        """Update video bitrate and buf_factor when bufsize changes manually"""
         try:
             bufsize = int(self.video_bufsize.get())
-            bitrate = bufsize * 2
-            self.video_bitrate.set(str(bitrate))
-            
-            # Устанавливаем флаг для пересчета max_buffer
+            bitrate = int(self.video_bitrate.get())
+            # Пересчитываем buf_factor на основе ручных значений
+            if bitrate > 0:
+                new_factor = (bufsize / bitrate) * 100
+                new_factor = max(20, min(200, new_factor))
+                self.video_buf_factor.set(round(new_factor))
             self._should_recalc_max = True
-            
-            # Update buffer settings
             self.update_buffer_settings()
         except:
-            pass      
+            pass   
 
     def update_speed_color(self):
         """Update encoder speed color based on value"""
@@ -10421,6 +10445,13 @@ class DVBT2EncoderGUI:
                     self.audio_sample_rate.set(config['audio_sample_rate'])
                 if 'audio_channels' in config:
                     self.audio_channels.set(config['audio_channels'])
+                    
+                if 'video_muxdelay' in config:
+                    self.video_muxdelay.set(config['video_muxdelay'])
+                if 'video_muxpreload' in config:
+                    self.video_muxpreload.set(config['video_muxpreload'])
+                if 'video_buf_factor' in config:
+                    self.video_buf_factor.set(config['video_buf_factor'])                    
                 
                 # Load input devices
                 if 'video_input_device' in config:
@@ -10667,6 +10698,10 @@ class DVBT2EncoderGUI:
                 'audio_bitrate': self.audio_bitrate.get(),
                 'audio_sample_rate': self.audio_sample_rate.get(),
                 'audio_channels': self.audio_channels.get(),
+                
+                'video_muxdelay': self.video_muxdelay.get(),
+                'video_muxpreload': self.video_muxpreload.get(),
+                'video_buf_factor': self.video_buf_factor.get(),                
                 
                 # Input devices
                 'video_input_device': self.video_input_device.get(),
@@ -12225,6 +12260,7 @@ class DVBT2EncoderGUI:
         
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
         encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)
+        
         # Параметры видео
         codec = self.video_codec.get()
         preset = self.video_preset.get()
@@ -12244,7 +12280,9 @@ class DVBT2EncoderGUI:
         cmd += f'-i "{safe_path}" '
         if encoder_cmd:
             cmd += encoder_cmd + " "
-        
+            cmd += f'-b:a {audio_bitrate} '
+            cmd += f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} '
+            
         # Метаданные
         cmd += f'-metadata service_provider="EMERGENCY" '
         cmd += f'-metadata service_name="Emergency CH{channel_num}" '
@@ -13572,171 +13610,157 @@ class DVBT2EncoderGUI:
         """Парсит команду и обновляет соответствующие GUI переменные"""
         import shlex
         import re
-
-        self._updating_from_preset = True  # Устанавливаем флаг перед обновлением
-        try:
         
-            # Разбираем команду на части
-            try:
-                parts = shlex.split(command) if isinstance(command, str) else []
-            except:
-                # Если shlex не справляется, пробуем простой split
-                parts = command.split()
-            
-            # Временные переменные для хранения найденных значений
-            found = {
-                'vcodec': None, 'preset': None, 'tune': None, 'profile': None,
-                'pix_fmt': None, 'aspect': None, 's': None, 'r': None, 'g': None,
-                'acodec': None, 'ar': None, 'ac': None, 'custom': [],
-                'x265_params': None
-            }
-            
-            i = 0
-            while i < len(parts):
-                part = parts[i]
-                if part == '-vcodec' and i + 1 < len(parts):
-                    found['vcodec'] = parts[i + 1]
-                    i += 2
-                elif part == '-c:v' and i + 1 < len(parts):
-                    found['vcodec'] = parts[i + 1]
-                    i += 2
-                elif part == '-preset' and i + 1 < len(parts):
-                    found['preset'] = parts[i + 1]
-                    i += 2
-                elif part == '-tune' and i + 1 < len(parts):
-                    found['tune'] = parts[i + 1]
-                    i += 2
-                elif part == '-profile:v' and i + 1 < len(parts):
-                    found['profile'] = parts[i + 1]
-                    i += 2
-                elif part == '-pix_fmt' and i + 1 < len(parts):
-                    found['pix_fmt'] = parts[i + 1]
-                    i += 2
-                elif part == '-aspect' and i + 1 < len(parts):
-                    found['aspect'] = parts[i + 1]
-                    i += 2
-                elif part == '-s' and i + 1 < len(parts):
-                    found['s'] = parts[i + 1]
-                    i += 2
-                elif part == '-r' and i + 1 < len(parts):
-                    found['r'] = parts[i + 1]
-                    i += 2
-                elif part == '-g' and i + 1 < len(parts):
-                    found['g'] = parts[i + 1]
-                    i += 2
-                elif part == '-c:a' and i + 1 < len(parts):
-                    found['acodec'] = parts[i + 1]
-                    i += 2
-                elif part == '-ar' and i + 1 < len(parts):
-                    found['ar'] = parts[i + 1]
-                    i += 2
-                elif part == '-ac' and i + 1 < len(parts):
-                    found['ac'] = parts[i + 1]
-                    i += 2
-                elif part == '-x265-params' and i + 1 < len(parts):
-                    found['x265_params'] = parts[i + 1].strip('"')
-                    # Парсим x265-params для извлечения профиля
-                    for param in found['x265_params'].split(':'):
-                        if '=' in param:
-                            key, val = param.split('=', 1)
-                            if key == 'profile':
-                                found['profile'] = val
-                    i += 2
-                elif part == '-quality' and i + 1 < len(parts):
-                    # Для AMF кодеков
-                    found['preset'] = parts[i + 1]
-                    i += 2
-                elif part == '-tier' and i + 1 < len(parts):
-                    # Для NVENC HDR
-                    i += 2
-                elif part == '-color_primaries' and i + 1 < len(parts):
-                    # HDR параметр, пропускаем
-                    i += 2
-                elif part == '-color_trc' and i + 1 < len(parts):
-                    i += 2
-                elif part == '-colorspace' and i + 1 < len(parts):
-                    i += 2
-                elif part == '-color_range' and i + 1 < len(parts):
-                    i += 2
-                elif part.startswith('-') and len(part) > 1:
-                    # Другие параметры собираем как custom
-                    if part not in ['-vcodec', '-c:v', '-preset', '-tune', '-profile:v', '-pix_fmt', 
-                                    '-aspect', '-s', '-r', '-g', '-c:a', '-ar', '-ac', '-x265-params',
-                                    '-quality', '-tier', '-color_primaries', '-color_trc', '-colorspace', 
-                                    '-color_range', '-b:v', '-minrate', '-maxrate', '-bufsize', '-b:a']:
-                        found['custom'].append(part)
-                        if i + 1 < len(parts) and not parts[i + 1].startswith('-'):
-                            found['custom'].append(parts[i + 1])
-                            i += 2
-                        else:
-                            i += 1
+        # Разбираем команду на части
+        try:
+            parts = shlex.split(command) if isinstance(command, str) else []
+        except:
+            parts = command.split()
+        
+        # Временные переменные для хранения найденных значений
+        found = {
+            'vcodec': None, 'preset': None, 'tune': None, 'profile': None,
+            'pix_fmt': None, 'aspect': None, 's': None, 'r': None, 'g': None,
+            'acodec': None, 'ar': None, 'ac': None, 'custom': [],
+            'x265_params': None, 'x264_params': None  # Добавляем x264_params
+        }
+        
+        i = 0
+        while i < len(parts):
+            part = parts[i]
+            if part == '-vcodec' and i + 1 < len(parts):
+                found['vcodec'] = parts[i + 1]
+                i += 2
+            elif part == '-c:v' and i + 1 < len(parts):
+                found['vcodec'] = parts[i + 1]
+                i += 2
+            elif part == '-preset' and i + 1 < len(parts):
+                found['preset'] = parts[i + 1]
+                i += 2
+            elif part == '-tune' and i + 1 < len(parts):
+                found['tune'] = parts[i + 1]
+                i += 2
+            elif part == '-profile:v' and i + 1 < len(parts):
+                found['profile'] = parts[i + 1]
+                i += 2
+            elif part == '-pix_fmt' and i + 1 < len(parts):
+                found['pix_fmt'] = parts[i + 1]
+                i += 2
+            elif part == '-aspect' and i + 1 < len(parts):
+                found['aspect'] = parts[i + 1]
+                i += 2
+            elif part == '-s' and i + 1 < len(parts):
+                found['s'] = parts[i + 1]
+                i += 2
+            elif part == '-r' and i + 1 < len(parts):
+                found['r'] = parts[i + 1]
+                i += 2
+            elif part == '-g' and i + 1 < len(parts):
+                found['g'] = parts[i + 1]
+                i += 2
+            elif part == '-c:a' and i + 1 < len(parts):
+                found['acodec'] = parts[i + 1]
+                i += 2
+            elif part == '-ar' and i + 1 < len(parts):
+                found['ar'] = parts[i + 1]
+                i += 2
+            elif part == '-ac' and i + 1 < len(parts):
+                found['ac'] = parts[i + 1]
+                i += 2
+            elif part == '-x265-params' and i + 1 < len(parts):
+                found['x265_params'] = parts[i + 1].strip('"')
+                for param in found['x265_params'].split(':'):
+                    if '=' in param:
+                        key, val = param.split('=', 1)
+                        if key == 'profile':
+                            found['profile'] = val
+                i += 2
+            elif part == '-x264-params' and i + 1 < len(parts):  # Добавляем обработку x264-params
+                found['x264_params'] = parts[i + 1].strip('"')
+                for param in found['x264_params'].split(':'):
+                    if '=' in param:
+                        key, val = param.split('=', 1)
+                        if key == 'profile':
+                            found['profile'] = val
+                i += 2
+            elif part == '-quality' and i + 1 < len(parts):
+                found['preset'] = parts[i + 1]
+                i += 2
+            elif part.startswith('-') and len(part) > 1:
+                # Список пропускаемых параметров - добавляем -x264-params
+                if part not in ['-vcodec', '-c:v', '-preset', '-tune', '-profile:v', '-pix_fmt', 
+                                '-aspect', '-s', '-r', '-g', '-c:a', '-ar', '-ac', '-x265-params',
+                                '-x264-params',  # Добавляем сюда
+                                '-quality', '-tier', '-color_primaries', '-color_trc', '-colorspace', 
+                                '-color_range', '-b:v', '-minrate', '-maxrate', '-bufsize', '-b:a']:
+                    found['custom'].append(part)
+                    if i + 1 < len(parts) and not parts[i + 1].startswith('-'):
+                        found['custom'].append(parts[i + 1])
+                        i += 2
                     else:
                         i += 1
                 else:
                     i += 1
-            
-            # Применяем найденные значения к GUI
-            if found['vcodec'] and found['vcodec'] in self.codec_presets:
-                self.video_codec.set(found['vcodec'])
-                self.update_codec_settings()  # Обновляем списки пресетов
-            
-            if found['preset']:
-                # Проверяем, что пресет доступен для выбранного кодекса
-                codec = self.video_codec.get()
-                if codec in self.codec_presets and found['preset'] in self.codec_presets[codec]:
-                    self.video_preset.set(found['preset'])
-                elif codec in ['h264_amf', 'hevc_amf'] and found['preset'] in ['speed', 'balanced', 'quality']:
-                    self.video_preset.set(found['preset'])
-            
-            if found['tune']:
-                codec = self.video_codec.get()
-                if codec in self.codec_tunes and found['tune'] in self.codec_tunes[codec]:
-                    self.video_tune.set(found['tune'])
-            
-            if found['profile']:
-                self.video_profile.set(found['profile'])
-                self.update_pixel_formats()  # Обновляем форматы пикселей
-            
-            if found['pix_fmt']:
-                self.pix_fmt.set(found['pix_fmt'])
-                self.update_mode_indicator()
-            
-            if found['aspect']:
-                self.video_aspect.set(found['aspect'])
-            
-            if found['s']:
-                self.video_resolution.set(found['s'])
-            
-            if found['r']:
-                self.video_fps.set(found['r'])
-            
-            if found['g']:
-                self.video_gop.set(found['g'])
-            
-            if found['acodec']:
-                self.audio_codec.set(found['acodec'])
-                self.update_audio_settings()
-            
-            if found['ar']:
-                self.audio_sample_rate.set(found['ar'])
-            
-            if found['ac']:
-                # Конвертируем число каналов в название
-                channel_map = {"1": "mono", "2": "stereo", "6": "5.1"}
-                channel_name = channel_map.get(found['ac'], "stereo")
-                self.audio_channels.set(channel_name)
-            
-            # Custom options
-            if found['custom']:
-                self.custom_options.set(" ".join(found['custom']))
-            
-            # Сохраняем конфигурацию
-            self.save_config()
-            # Обновляем отображение команды
-            self.update_encoder_command_display()
-        finally:
-            self._updating_from_preset = False  # Сбрасываем флаг        
-
+            else:
+                i += 1
+        
+        # Применяем найденные значения к GUI
+        if found['vcodec'] and found['vcodec'] in self.codec_presets:
+            self.video_codec.set(found['vcodec'])
+            self.update_codec_settings()
+        
+        if found['preset']:
+            codec = self.video_codec.get()
+            if codec in self.codec_presets and found['preset'] in self.codec_presets[codec]:
+                self.video_preset.set(found['preset'])
+            elif codec in ['h264_amf', 'hevc_amf'] and found['preset'] in ['speed', 'balanced', 'quality']:
+                self.video_preset.set(found['preset'])
+        
+        if found['tune']:
+            codec = self.video_codec.get()
+            if codec in self.codec_tunes and found['tune'] in self.codec_tunes[codec]:
+                self.video_tune.set(found['tune'])
+        
+        if found['profile']:
+            self.video_profile.set(found['profile'])
+            self.update_pixel_formats()
+        
+        if found['pix_fmt']:
+            self.pix_fmt.set(found['pix_fmt'])
+            self.update_mode_indicator()
+        
+        if found['aspect']:
+            self.video_aspect.set(found['aspect'])
+        
+        if found['s']:
+            self.video_resolution.set(found['s'])
+        
+        if found['r']:
+            self.video_fps.set(found['r'])
+        
+        if found['g']:
+            self.video_gop.set(found['g'])
+        
+        if found['acodec']:
+            self.audio_codec.set(found['acodec'])
+            self.update_audio_settings()
+        
+        if found['ar']:
+            self.audio_sample_rate.set(found['ar'])
+        
+        if found['ac']:
+            channel_map = {"1": "mono", "2": "stereo", "6": "5.1"}
+            channel_name = channel_map.get(found['ac'], "stereo")
+            self.audio_channels.set(channel_name)
+        
+        # Custom options - теперь -x264-params не попадают сюда
+        if found['custom']:
+            self.custom_options.set(" ".join(found['custom']))
+        else:
+            self.custom_options.set("")  # Очищаем если нет пользовательских параметров
+        
+        # Сохраняем конфигурацию
+        self.save_config()
 
     def update_encoder_command_display(self):
         """Обновляет текстовое поле с командой на основе текущих настроек"""
@@ -13857,7 +13881,9 @@ class DVBT2EncoderGUI:
     def get_encoder_command_with_bitrate(self, video_bitrate_kbps):
         """Возвращает полную команду кодирования с подставленным битрейтом"""
         # Рассчитываем bufsize как половину от битрейта (как в оригинальной логике)
-        video_bufsize_kbps = max(50, video_bitrate_kbps // 2)
+        # Рассчитываем bufsize с учетом множителя (в процентах)
+        buf_factor = self.video_buf_factor.get() / 100.0
+        video_bufsize_kbps = max(50, int(video_bitrate_kbps * buf_factor))
         
         # Получаем базовую команду из текстового поля или из настроек
         if hasattr(self, 'encoder_command_widget') and self.encoder_command_widget:
@@ -13934,7 +13960,7 @@ class DVBT2EncoderGUI:
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
         
         # Получаем команду кодирования с битрейтом
-        video_bufsize = int(self.video_bufsize.get())
+
         encoder_cmd = self.get_encoder_command_with_bitrate(video_bitrate)
         
         # Формируем полную команду
@@ -13951,11 +13977,12 @@ class DVBT2EncoderGUI:
         # В encoder_cmd уже есть -c:a, -ar, -ac, но нет -b:a
         cmd += f'-b:a {audio_bitrate} '
         
+        
         # Выходные параметры
         buffer_bytes = self.get_udp_buffer_bytes()
         cmd += (
             f'-f mpegts -max_delay 300K -max_interleave_delta 4M '
-            f'-muxdelay 0.1 -muxpreload 0.1 -pcr_period 40 '
+            f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} -pcr_period 40 '
             f'-pat_period 0.4 -sdt_period 0.5 '
             f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 '
             f'-mpegts_pmt_start_pid 4096 -mpegts_start_pid 256 '
@@ -14088,6 +14115,8 @@ class DVBT2EncoderGUI:
         
         if encoder_cmd:
             cmd += encoder_cmd + " "
+            cmd += f'-b:a {audio_bitrate} '
+            cmd += f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} '
         else:
             # Fallback если encoder_cmd пустой
             self.log_message(f"CH{channel_num}: Warning - encoder command is empty", "buffer")
@@ -14345,6 +14374,8 @@ class DVBT2EncoderGUI:
         # Разбиваем encoder_cmd на части и добавляем их
         if encoder_cmd:
             cmd += encoder_cmd + " "
+            cmd += f'-b:a {audio_bitrate} '
+            cmd += f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} '
         
         # Метаданные
         service_name = channel_data['name'].get() or f"Radio_{channel_num}"
@@ -14633,8 +14664,9 @@ class DVBT2EncoderGUI:
                 # Обновляем ВСЕ видеобитрейты
                 self.video_bitrate.set(str(video_bitrate_calculated))
                 
-                # ⚡ ИЗМЕНЕНО: Вручную обновляем bufsize без вызова цепочки обновлений
-                bufsize = max(50, video_bitrate_calculated // 2)
+                # Рассчитываем bufsize с учетом множителя из настроек
+                buf_factor = self.video_buf_factor.get() / 100.0
+                bufsize = max(50, int(video_bitrate_calculated * buf_factor))
                 self.video_bufsize.set(str(bufsize))
                 
                 audio_bitrate_output = f"{audio_bitrate_kbps}k"
@@ -14718,8 +14750,9 @@ class DVBT2EncoderGUI:
             # Update video bitrate
             self.video_bitrate.set(f"{int(available_video_after_audio)}")
             
-            # Auto-update bufsize (bufsize = bitrate / 2)
-            bufsize = max(50, int(available_video_after_audio) // 2)
+            # Auto-update bufsize с учетом Buf Factor
+            buf_factor = self.video_buf_factor.get() / 100.0
+            bufsize = max(50, int(available_video_after_audio * buf_factor))
             self.video_bufsize.set(str(bufsize))
             
             self.log_message(f"  Result: Video={video_per_channel}k per channel, Audio={audio_bitrate_output} per channel", "buffer")
@@ -14739,7 +14772,7 @@ class DVBT2EncoderGUI:
         
         return (
             f'-f mpegts -max_delay 300K -max_interleave_delta 4M '
-            f'-muxdelay 0.1 -muxpreload 0.1 -pcr_period 40 '
+            f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} -pcr_period 40 '
             f'-pat_period 0.4 -sdt_period 0.5 '
             f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 '
             f'-mpegts_pmt_start_pid 4096 -mpegts_start_pid 256 '
@@ -14775,9 +14808,9 @@ class DVBT2EncoderGUI:
                 emergency_cmd += f'-vcodec {self.video_codec.get()} -preset {self.video_preset.get()} '
                 
                 if self.video_codec.get() == "libx265":
-                    emergency_cmd += f'-x265-params "bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//2}:profile={self.video_profile.get()}" '
+                    emergency_cmd += f'-x265-params "bitrate={video_bitrate}:vbv-maxrate={video_bitrate}:vbv-bufsize={video_bitrate//1}:profile={self.video_profile.get()}" '
                 else:
-                    emergency_cmd += f'-profile:v {self.video_profile.get()} -b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//2}k '
+                    emergency_cmd += f'-profile:v {self.video_profile.get()} -b:v {video_bitrate}k -minrate {video_bitrate}k -maxrate {video_bitrate}k -bufsize {video_bitrate//1}k '
                 
                 emergency_cmd += f'-pix_fmt {self.pix_fmt.get()} -s {self.video_resolution.get()} -g {self.video_gop.get()} -aspect {self.video_aspect.get()} -r {self.video_fps.get()} '
                 emergency_cmd += f'-c:a {self.audio_codec.get()} -b:a {audio_bitrate} '
