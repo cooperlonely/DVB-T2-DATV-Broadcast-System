@@ -1,4 +1,35 @@
 @echo off
+setlocal enabledelayedexpansion
+
+:: САМОИСЦЕЛЕНИЕ: проверяем и исправляем окончания строк
+set "SCRIPT=%~f0"
+set "SELF_TEST=%~n0_selftest.tmp"
+
+:: Создаём тестовый файл с CRLF
+echo. > "%TEMP%\%SELF_TEST%" 2>nul
+for %%A in ("%TEMP%\%SELF_TEST%") do set "SIZE=%%~zA"
+del "%TEMP%\%SELF_TEST%" 2>nul
+
+:: Проверяем текущий файл (грубый тест на LF)
+findstr /V /R "$" "%SCRIPT%" >nul 2>&1
+if errorlevel 1 (
+    :: Файл уже в CRLF, всё хорошо
+    goto :main
+)
+
+:: Файл в LF, создаём исправленную копию
+echo [WARNING] Fixing line endings for compatibility...
+set "FIXED=%TEMP%\%~n0_fixed.bat"
+(
+    for /f "tokens=* delims=" %%a in ('type "%SCRIPT%"') do echo %%a
+) > "%FIXED%"
+
+:: Запускаем исправленную версию и выходим
+call "%FIXED%"
+del "%FIXED%" 2>nul
+exit /b
+
+:main
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 
