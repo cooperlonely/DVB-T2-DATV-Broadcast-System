@@ -12286,7 +12286,7 @@ class DVBT2EncoderGUI:
         cmd += f'-f mpegts -flush_packet 0'
         cmd += f'-mpegts_pmt_start_pid 4096 -mpegts_flags resend_headers -mpegts_start_pid 256 -mpegts_flags system_b '
         cmd += f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 -pcr_period 40 -pat_period 0.4 -sdt_period 0.5 '        
-        
+        muxrate = float(self.muxrate.get())
         buffer_bytes = self.get_udp_buffer_bytes()
         fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
         burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
