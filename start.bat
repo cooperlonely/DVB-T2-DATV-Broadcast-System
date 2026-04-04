@@ -1,54 +1,66 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: САМОИСЦЕЛЕНИЕ: проверяем и исправляем окончания строк
-set "SCRIPT=%~f0"
-set "SELF_TEST=%~n0_selftest.tmp"
+:: --- БЛОК САМОЛЕЧЕНИЯ: Исправляем себя один раз и навсегда ---
+set "ORIGINAL_SCRIPT=%~f0"
+set "ORIGINAL_DIR=%~dp0"
+set "ORIGINAL_DIR=%ORIGINAL_DIR:~0,-1%"
 
-:: Создаём тестовый файл с CRLF
-echo. > "%TEMP%\%SELF_TEST%" 2>nul
-for %%A in ("%TEMP%\%SELF_TEST%") do set "SIZE=%%~zA"
-del "%TEMP%\%SELF_TEST%" 2>nul
+:: Проверяем, не запущены ли мы с флагом "уже исправлено"
+if "%1"=="--fixed" goto :main
 
-:: Проверяем текущий файл (грубый тест на LF)
-findstr /V /R "$" "%SCRIPT%" >nul 2>&1
-if errorlevel 1 (
-    :: Файл уже в CRLF, всё хорошо
-    goto :main
-)
+:: Проверяем, нужно ли исправление (есть ли CR в файле)
+set "TEST_FILE=%TEMP%\crlf_test_%RANDOM%.tmp"
+copy "%ORIGINAL_SCRIPT%" "%TEST_FILE%" >nul 2>&1
+findstr /V /R "$" "%TEST_FILE%" >nul 2>&1
+set "NEEDS_FIX=%errorlevel%"
+del "%TEST_FILE%" 2>nul
 
-:: Файл в LF, создаём исправленную копию
-echo [WARNING] Fixing line endings for compatibility...
-set "FIXED=%TEMP%\%~n0_fixed.bat"
+:: Если файл уже в CRLF, ничего не делаем
+if %NEEDS_FIX% NEQ 0 goto :main
+
+:: --- Файл сломан (только LF). ПЕРЕЗАПИСЫВАЕМ СЕБЯ В ПРАВИЛЬНОМ ФОРМАТЕ ---
+echo [WARNING] Found LF endings of lines, fixing to CRLF...
+
+:: Создаем временный файл с правильными окончаниями строк
+set "TEMP_SCRIPT=%TEMP%\%~n0_temp.bat"
 (
-    for /f "tokens=* delims=" %%a in ('type "%SCRIPT%"') do echo %%a
-) > "%FIXED%"
+    for /f "usebackq tokens=* delims=" %%a in ("%ORIGINAL_SCRIPT%") do echo %%a
+) > "%TEMP_SCRIPT%"
 
-:: Запускаем исправленную версию и выходим
-call "%FIXED%"
-del "%FIXED%" 2>nul
+:: Заменяем оригинальный файл исправленной версией
+copy /y "%TEMP_SCRIPT%" "%ORIGINAL_SCRIPT%" >nul
+del "%TEMP_SCRIPT%" 2>nul
+
+echo [OK] Файл исправлен. Перезапускаюсь...
+
+:: Перезапускаем себя с флагом "уже исправлено" и завершаем старую версию
+start "" "%ORIGINAL_SCRIPT%" --fixed
 exit /b
 
-:main
-chcp 65001 >nul
-setlocal enabledelayedexpansion
+:: --- КОНЕЦ БЛОКА САМОЛЕЧЕНИЯ ---
 
+:main
+:: Убираем флаг, если он был передан
+set SCRIPT_ARGS=%*
+if "%1"=="--fixed" shift
+
+:: ОСНОВНОЙ КОД (ваш оригинальный)
+chcp 65001 >nul
 echo ================================================
 echo  DVB-T2 Encoder Launcher (Portable Mode)
 echo ================================================
 echo.
 
-:: Получаем директорию, где находится этот батник
+:: Получаем директорию
 set "SCRIPT_DIR=%~dp0"
 set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-:: Формируем пути относительно батника
 set "RADIOCONDA_DIR=%SCRIPT_DIR%\radioconda"
 set "PYTHON_EXE=%RADIOCONDA_DIR%\python.exe"
 set "SOAPY_SDR_ROOT=%RADIOCONDA_DIR%\Library"
 set "SOAPY_SDR_PLUGIN_PATH=%RADIOCONDA_DIR%\Library\lib\SoapySDR\modules0.8"
 
-:: Проверяем существование Python
 if not exist "%PYTHON_EXE%" (
     echo [ERROR] Python not found at: %PYTHON_EXE%
     echo.
@@ -63,49 +75,13 @@ echo [OK] SoapySDR root: %SOAPY_SDR_ROOT%
 echo [OK] SoapySDR plugins: %SOAPY_SDR_PLUGIN_PATH%
 echo.
 
-:: Устанавливаем переменные окружения
 set "CONDA_BASE=%RADIOCONDA_DIR%"
 set "PATH=%RADIOCONDA_DIR%\Library\bin;%RADIOCONDA_DIR%\Library\lib;%RADIOCONDA_DIR%\DLLs;%RADIOCONDA_DIR%;%PATH%"
 
-:: Переходим в директорию со скриптом
 cd /d "%SCRIPT_DIR%"
 
 echo [OK] Current directory: %CD%
 echo.
-REM echo ================================================
-REM echo  Testing environment...
-REM echo ================================================
-
-REM :: Создаем временный Python скрипт для тестирования
-REM echo import sys, os, platform > "%TEMP%\test_env.py"
-REM echo print('[TEST] Python:', sys.executable) >> "%TEMP%\test_env.py"
-REM echo print('[TEST] Version:', platform.python_version()) >> "%TEMP%\test_env.py"
-REM echo print('[TEST] Working Directory:', os.getcwd()) >> "%TEMP%\test_env.py"
-REM echo print('') >> "%TEMP%\test_env.py"
-REM echo print('[TEST] SOAPY_SDR_ROOT:', os.environ.get('SOAPY_SDR_ROOT', 'Not set')) >> "%TEMP%\test_env.py"
-REM echo print('[TEST] SOAPY_SDR_PLUGIN_PATH:', os.environ.get('SOAPY_SDR_PLUGIN_PATH', 'Not set')) >> "%TEMP%\test_env.py"
-REM echo print('') >> "%TEMP%\test_env.py"
-REM echo try: >> "%TEMP%\test_env.py"
-REM echo     import gnuradio >> "%TEMP%\test_env.py"
-REM echo     print('[TEST] GNU Radio: OK') >> "%TEMP%\test_env.py"
-REM echo except ImportError as e: >> "%TEMP%\test_env.py"
-REM echo     print('[TEST] GNU Radio: ERROR -', str(e)) >> "%TEMP%\test_env.py"
-REM echo print('') >> "%TEMP%\test_env.py"
-REM echo try: >> "%TEMP%\test_env.py"
-REM echo     import SoapySDR >> "%TEMP%\test_env.py"
-REM echo     print('[TEST] SoapySDR: OK') >> "%TEMP%\test_env.py"
-REM echo     print('') >> "%TEMP%\test_env.py"
-REM echo     print('[TEST] Available SDR devices:') >> "%TEMP%\test_env.py"
-REM echo     results = SoapySDR.Device.enumerate() >> "%TEMP%\test_env.py"
-REM echo     for dev in results: >> "%TEMP%\test_env.py"
-REM echo         print(f'  - {dev}') >> "%TEMP%\test_env.py"
-REM echo except ImportError as e: >> "%TEMP%\test_env.py"
-REM echo     print('[TEST] SoapySDR: ERROR -', str(e)) >> "%TEMP%\test_env.py"
-
-REM "%PYTHON_EXE%" "%TEMP%\test_env.py"
-REM del "%TEMP%\test_env.py"
-
-REM echo.
 echo ================================================
 echo  Running DVB-T2 Encoder...
 echo ================================================
