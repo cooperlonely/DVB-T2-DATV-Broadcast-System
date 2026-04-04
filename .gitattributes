@@ -1,1 +1,17 @@
 *.rar filter=lfs diff=lfs merge=lfs -text
+# Авто-определение для текстовых файлов
+* text=auto
+
+# Явно указать CRLF для batch-файлов (Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell-скрипты должны быть LF
+*.sh text eol=lf
+
+# Бинарные файлы
+*.pyc binary
+*.png binary
+*.jpg binary
+*.exe binary
+*.dll binary
