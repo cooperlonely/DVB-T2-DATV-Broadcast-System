@@ -1543,22 +1543,22 @@ class DVBTCalculatorTab:
                 if success:
                     # Автоматически пересчитываем
                     self.calculate()
-                    self.parent.log_message(f"✅ Calculator synced with preset: {current_preset}", "buffer")
+                    self.parent.log_message(f"✅ Calculator synced with preset: {current_preset}", "gnuradio")
                 else:
-                    self.parent.log_message(f"⚠️ Calculator sync failed for: {current_preset}", "buffer")
+                    self.parent.log_message(f"⚠️ Calculator sync failed for: {current_preset}", "gnuradio")
             else:
-                self.parent.log_message("❌ No preset selected for calculator sync", "buffer")
+                self.parent.log_message("❌ No preset selected for calculator sync", "gnuradio")
         except Exception as e:
-            self.parent.log_message(f"❌ Error syncing calculator with preset: {e}", "buffer")        
+            self.parent.log_message(f"❌ Error syncing calculator with preset: {e}", "gnuradio")        
        
     def load_preset_parameters(self, preset_name):
         """Load parameters from selected preset into calculator from JSON file"""
         try:
             if not preset_name or preset_name not in self.parent.modulator_presets:
-                self.parent.log_message(f"❌ Preset '{preset_name}' not found", "buffer")
+                self.parent.log_message(f"❌ Preset '{preset_name}' not found", "gnuradio")
                 return False
             
-            self.parent.log_message(f"🔄 Loading preset parameters: {preset_name}", "buffer")
+            self.parent.log_message(f"🔄 Loading preset parameters: {preset_name}", "gnuradio")
             
             preset_info = self.parent.modulator_presets[preset_name]
             
@@ -1574,24 +1574,24 @@ class DVBTCalculatorTab:
                         
                         # Устанавливаем параметры из JSON в калькулятор
                         self.set_calculator_parameters(params)
-                        self.parent.log_message(f"✅ Parameters loaded from JSON for: {preset_name}", "buffer")
+                        self.parent.log_message(f"✅ Parameters loaded from JSON for: {preset_name}", "gnuradio")
                         return True
                         
                 except Exception as e:
-                    self.parent.log_message(f"❌ Error loading JSON for {preset_name}: {e}", "buffer")
+                    self.parent.log_message(f"❌ Error loading JSON for {preset_name}: {e}", "gnuradio")
                     # Покажем подробности ошибки
                     import traceback
-                    self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
+                    self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "gnuradio")
             
             # Если JSON не загрузился, парсим из имени файла (старый метод)
-            self.parent.log_message(f"ℹ️ Falling back to filename parsing for: {preset_name}", "buffer")
+            self.parent.log_message(f"ℹ️ Falling back to filename parsing for: {preset_name}", "gnuradio")
             self.load_preset_parameters_from_filename(preset_name)
             return False
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error loading preset parameters: {e}", "buffer")
+            self.parent.log_message(f"❌ Error loading preset parameters: {e}", "gnuradio")
             import traceback
-            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
+            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "gnuradio")
             return False
 
     def load_preset_parameters_from_filename(self, preset_name):
@@ -1611,10 +1611,10 @@ class DVBTCalculatorTab:
                 elif '/' in part:
                     self.code_rate_var.set(part)
             
-            self.parent.log_message(f"ℹ️ Parameters loaded from filename for: {preset_name}", "buffer")
+            self.parent.log_message(f"ℹ️ Parameters loaded from filename for: {preset_name}", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error loading parameters from filename: {e}", "buffer")
+            self.parent.log_message(f"❌ Error loading parameters from filename: {e}", "gnuradio")
 
     def create_calculator_tab(self, parent):
         """Create calculator tab interface"""
@@ -1833,10 +1833,10 @@ class DVBTCalculatorTab:
             if 'l1_modulation' in params and params['l1_modulation'] in self.L1_MODULATION:
                 self.l1_modulation_var.set(params['l1_modulation'])
                 
-            self.parent.log_message("✅ Calculator parameters updated from preset", "buffer")
+            self.parent.log_message("✅ Calculator parameters updated from preset", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error setting calculator parameters: {e}", "buffer")       
+            self.parent.log_message(f"❌ Error setting calculator parameters: {e}", "gnuradio")       
         
     def setup_calculator_variables(self):
         """Initialize calculator variables with DVB-T2 standard parameters"""
@@ -2033,8 +2033,8 @@ class DVBTCalculatorTab:
         # Логируем ТОЛЬКО если parent полностью инициализирован и имеет метод log_message
         try:
             if hasattr(self.parent, 'log_message'):
-                self.parent.log_message(f"📁 Modulator presets dir: {self.modulator_presets_dir}", "buffer")
-                self.parent.log_message(f"📁 Schemes dir: {self.saved_schemes_dir}", "buffer")
+                self.parent.log_message(f"📁 Modulator presets dir: {self.modulator_presets_dir}", "overlay")
+                self.parent.log_message(f"📁 Schemes dir: {self.saved_schemes_dir}", "overlay")
             else:
                 # Если нет log_message, просто печатаем
                 print(f"📁 Modulator presets dir: {self.modulator_presets_dir}")
@@ -2178,7 +2178,7 @@ class DVBTCalculatorTab:
         # Validation first - without popup messages
         is_valid, validation_msg = self.validate_parameters()
         if not is_valid:
-            self.parent.log_message(f"⚠️ Basic Validation Warning: {validation_msg}", "buffer")
+            self.parent.log_message(f"⚠️ Basic Validation Warning: {validation_msg}", "gnuradio")
             # НЕ возвращаемся, продолжаем расчет!
             # return
         
@@ -2191,10 +2191,10 @@ class DVBTCalculatorTab:
         )
         
         if not math_valid:
-            self.parent.log_message(f"⚠️ Mathematical Validation Warning: {math_msg}", "buffer")
+            self.parent.log_message(f"⚠️ Mathematical Validation Warning: {math_msg}", "gnuradio")
 
         else:
-            self.parent.log_message(f"✅ Mathematical Validation: {math_msg}", "buffer")
+            self.parent.log_message(f"✅ Mathematical Validation: {math_msg}", "gnuradio")
         
         try:
             script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -2202,7 +2202,7 @@ class DVBTCalculatorTab:
             
             # Check if original calculator exists with absolute path
             if not os.path.exists(exe_path):
-                self.parent.log_message(f"❌ dvbt2rate.exe not found at: {exe_path}", "buffer")
+                self.parent.log_message(f"❌ dvbt2rate.exe not found at: {exe_path}", "gnuradio")
                 return
             
             # Prepare parameters for original calculator
@@ -2220,7 +2220,7 @@ class DVBTCalculatorTab:
                 'l1_modulation': self.L1_MODULATION[self.l1_modulation_var.get()]
             }
             
-            self.parent.log_message("🔄 Running original DVB-T2 calculator...", "buffer")
+            self.parent.log_message("🔄 Running original DVB-T2 calculator...", "gnuradio")
             
             # Run original calculator with absolute path
             cmd = [
@@ -2238,17 +2238,17 @@ class DVBTCalculatorTab:
                 str(params['l1_modulation'])
             ]
             
-            self.parent.log_message(f"🔍 Calculator command: {' '.join(cmd)}", "buffer")
+            self.parent.log_message(f"🔍 Calculator command: {' '.join(cmd)}", "gnuradio")
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, 
                                   cwd=script_dir)  # Запускаем из директории скрипта
             
             # ДОБАВЛЕНО: Детальный вывод для отладки
-            self.parent.log_message("🔍 FULL CALCULATOR OUTPUT:", "buffer")
-            self.parent.log_message(result.stdout, "buffer")
+            self.parent.log_message("🔍 FULL CALCULATOR OUTPUT:", "gnuradio")
+            self.parent.log_message(result.stdout, "gnuradio")
             if result.stderr:
-                self.parent.log_message("🔍 CALCULATOR ERRORS:", "buffer")
-                self.parent.log_message(result.stderr, "buffer")
+                self.parent.log_message("🔍 CALCULATOR ERRORS:", "gnuradio")
+                self.parent.log_message(result.stderr, "gnuradio")
             
             if result.returncode != 0:
                 raise Exception(f"Calculator returned error: {result.stderr}")
@@ -2276,14 +2276,14 @@ class DVBTCalculatorTab:
             # Display results
             self.display_original_results(original_results, params)
             
-            self.parent.log_message("✅ Calculation completed using original dvbt2rate.exe", "buffer")
+            self.parent.log_message("✅ Calculation completed using original dvbt2rate.exe", "gnuradio")
             
         except subprocess.TimeoutExpired:
-            self.parent.log_message("❌ Original calculator timed out", "buffer")
+            self.parent.log_message("❌ Original calculator timed out", "gnuradio")
         except Exception as e:
-            self.parent.log_message(f"❌ Error during calculation: {str(e)}", "buffer")
+            self.parent.log_message(f"❌ Error during calculation: {str(e)}", "gnuradio")
             import traceback
-            self.parent.log_message(f"❌ Calculation error details: {traceback.format_exc()}", "buffer")
+            self.parent.log_message(f"❌ Calculation error details: {traceback.format_exc()}", "gnuradio")
 
     def parse_original_output(self, output):
         """Parse output from original dvbt2rate calculator"""
@@ -2300,13 +2300,13 @@ class DVBTCalculatorTab:
                     try:
                         clock_part = line.split('clock rate =')[1].split(',')[0].strip()
                         results['clock_rate'] = float(clock_part)
-                        self.parent.log_message(f"✅ Parsed clock rate: {results['clock_rate']} Hz", "buffer")
+                        self.parent.log_message(f"✅ Parsed clock rate: {results['clock_rate']} Hz", "gnuradio")
                         
                         tf_part = line.split('TF =')[1].split('ms')[0].strip()
                         results['frame_time_ms'] = float(tf_part)
-                        self.parent.log_message(f"✅ Parsed frame time: {results['frame_time_ms']} ms", "buffer")
+                        self.parent.log_message(f"✅ Parsed frame time: {results['frame_time_ms']} ms", "gnuradio")
                     except Exception as e:
-                        self.parent.log_message(f"⚠️ Error parsing clock rate/TF: {e}", "buffer")
+                        self.parent.log_message(f"⚠️ Error parsing clock rate/TF: {e}", "gnuradio")
                         pass
                 
                 # Parse Normal mode bitrate
@@ -2314,9 +2314,9 @@ class DVBTCalculatorTab:
                     try:
                         value = float(line.split('=')[1].strip())
                         results['bitrate_normal'] = value
-                        self.parent.log_message(f"✅ Parsed normal bitrate: {results['bitrate_normal']} bps", "buffer")
+                        self.parent.log_message(f"✅ Parsed normal bitrate: {results['bitrate_normal']} bps", "gnuradio")
                     except Exception as e:
-                        self.parent.log_message(f"⚠️ Error parsing normal bitrate: {e}", "buffer")
+                        self.parent.log_message(f"⚠️ Error parsing normal bitrate: {e}", "gnuradio")
                         pass
                 
                 # Parse High Efficiency bitrate  
@@ -2324,9 +2324,9 @@ class DVBTCalculatorTab:
                     try:
                         value = float(line.split('=')[1].strip())
                         results['bitrate_he'] = value
-                        self.parent.log_message(f"✅ Parsed HE bitrate: {results['bitrate_he']} bps", "buffer")
+                        self.parent.log_message(f"✅ Parsed HE bitrate: {results['bitrate_he']} bps", "gnuradio")
                     except Exception as e:
-                        self.parent.log_message(f"⚠️ Error parsing HE bitrate: {e}", "buffer")
+                        self.parent.log_message(f"⚠️ Error parsing HE bitrate: {e}", "gnuradio")
                         pass
                 
                 # Parse max symbols and max blocks
@@ -2338,9 +2338,9 @@ class DVBTCalculatorTab:
                         if len(numbers) >= 2:
                             results['max_symbols'] = int(numbers[0])
                             results['max_blocks'] = int(numbers[1])
-                            self.parent.log_message(f"✅ Parsed limits: max_symbols={results['max_symbols']}, max_blocks={results['max_blocks']}", "buffer")
+                            self.parent.log_message(f"✅ Parsed limits: max_symbols={results['max_symbols']}, max_blocks={results['max_blocks']}", "gnuradio")
                     except Exception as e:
-                        self.parent.log_message(f"⚠️ Error parsing max symbols/blocks: {e}", "buffer")
+                        self.parent.log_message(f"⚠️ Error parsing max symbols/blocks: {e}", "gnuradio")
                         pass
                 
                 # Parse cells calculation
@@ -2362,25 +2362,25 @@ class DVBTCalculatorTab:
                             elif "unmodulated =" in part:
                                 results['unmodulated_cells'] = int(part.split('=')[1].strip())
                         
-                        self.parent.log_message(f"✅ Parsed cells: total={results.get('total_cells', 0)}, useful={results.get('useful_cells', 0)}, L1={results.get('l1_cells', 0)}, dummy={results.get('dummy_cells', 0)}, unmodulated={results.get('unmodulated_cells', 0)}", "buffer")
+                        self.parent.log_message(f"✅ Parsed cells: total={results.get('total_cells', 0)}, useful={results.get('useful_cells', 0)}, L1={results.get('l1_cells', 0)}, dummy={results.get('dummy_cells', 0)}, unmodulated={results.get('unmodulated_cells', 0)}", "gnuradio")
                         cells_parsed = True
                             
                     except Exception as e:
-                        self.parent.log_message(f"⚠️ Error parsing cells: {e}", "buffer")
-                        self.parent.log_message(f"⚠️ Problematic line: {line}", "buffer")
+                        self.parent.log_message(f"⚠️ Error parsing cells: {e}", "gnuradio")
+                        self.parent.log_message(f"⚠️ Problematic line: {line}", "gnuradio")
                         pass
             
             # Добавляем отладочную информацию
-            self.parent.log_message(f"🔍 Final parser results:", "buffer")
+            self.parent.log_message(f"🔍 Final parser results:", "gnuradio")
             for key, value in results.items():
-                self.parent.log_message(f"   {key}: {value}", "buffer")
+                self.parent.log_message(f"   {key}: {value}", "gnuradio")
             
             return results
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error parsing original output: {e}", "buffer")
+            self.parent.log_message(f"❌ Error parsing original output: {e}", "gnuradio")
             import traceback
-            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
+            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "gnuradio")
             return {}
             
     def display_original_results(self, results, params):
@@ -2509,9 +2509,9 @@ class DVBTCalculatorTab:
             self.results_text.insert(1.0, "\n".join(output_lines))
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error displaying results: {e}", "buffer")
+            self.parent.log_message(f"❌ Error displaying results: {e}", "gnuradio")
             import traceback
-            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
+            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "gnuradio")
             
     def update_compatibility_based_on_math(self):
         """Update parameter compatibility based on mathematical framework"""
@@ -2524,10 +2524,10 @@ class DVBTCalculatorTab:
             pp = self.pilot_pattern_var.get()
             
             # Просто логируем информацию, не ограничиваем выбор
-            self.parent.log_message(f"ℹ️ Current combination: {fft_size}+{gi}+{pp}", "buffer")
+            self.parent.log_message(f"ℹ️ Current combination: {fft_size}+{gi}+{pp}", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"⚠️ Math compatibility check error: {e}", "buffer")            
+            self.parent.log_message(f"⚠️ Math compatibility check error: {e}", "gnuradio")            
             
     def update_parameter_limits(self, results):
         """Update parameter limits based on calculator results"""
@@ -2559,10 +2559,10 @@ class DVBTCalculatorTab:
                 results['max_data_symbols_display'] = max_data_symbols
                 results['max_blocks_display'] = max_blocks
                 
-                self.parent.log_message(f"🔧 Updated limits from calculator: Data Symbols ≤ {max_data_symbols}, FEC Blocks ≤ {max_blocks}", "buffer")
+                self.parent.log_message(f"🔧 Updated limits from calculator: Data Symbols ≤ {max_data_symbols}, FEC Blocks ≤ {max_blocks}", "gnuradio")
                 
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error updating parameter limits: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error updating parameter limits: {e}", "gnuradio")
 
     def update_parameter_limits_display(self, results):
         """Update parameter limits display in results"""
@@ -2585,7 +2585,7 @@ class DVBTCalculatorTab:
                 
                 return max_data_symbols, max_blocks
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error updating parameter limits display: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error updating parameter limits display: {e}", "gnuradio")
         return None, None
 
     def validate_data_symbols(self, value, max_value):
@@ -2615,7 +2615,7 @@ class DVBTCalculatorTab:
             gi = self.GUARD_INTERVAL[self.gi_var.get()]
             self.update_pilot_pattern_options(fft_size, gi)
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error in FFT size change: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error in FFT size change: {e}", "gnuradio")
 
     def on_gi_change(self, event=None):
         """Update pilot pattern options when Guard Interval changes"""
@@ -2624,7 +2624,7 @@ class DVBTCalculatorTab:
             gi = self.GUARD_INTERVAL[self.gi_var.get()]
             self.update_pilot_pattern_options(fft_size, gi)
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error in GI change: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error in GI change: {e}", "gnuradio")
 
     def update_data_symbols_combo(self, max_value):
         """Update Data Symbols combobox with limited range из расчета калькулятора"""
@@ -2650,10 +2650,10 @@ class DVBTCalculatorTab:
             self.data_symbols_combo['values'] = values
             self.data_symbols_combo.config(state="readonly")
             
-            self.parent.log_message(f"🔧 Data Symbols combo updated: {min_value} to {max_value}", "buffer")
+            self.parent.log_message(f"🔧 Data Symbols combo updated: {min_value} to {max_value}", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error updating data symbols combo: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error updating data symbols combo: {e}", "gnuradio")
 
     def update_fec_blocks_combo(self, max_value):
         """Update FEC Blocks combobox with limited range из расчета калькулятора"""
@@ -2679,10 +2679,10 @@ class DVBTCalculatorTab:
             self.fec_blocks_combo['values'] = values
             self.fec_blocks_combo.config(state="readonly")
             
-            self.parent.log_message(f"🔧 FEC Blocks combo updated: {min_value} to {max_value}", "buffer")
+            self.parent.log_message(f"🔧 FEC Blocks combo updated: {min_value} to {max_value}", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error updating FEC blocks combo: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error updating FEC blocks combo: {e}", "gnuradio")
             
     def validate_parameters(self):
         """
@@ -2719,13 +2719,13 @@ class DVBTCalculatorTab:
             
             # Log details
             for detail in details:
-                self.parent.log_message(detail, "buffer")
+                self.parent.log_message(detail, "gnuradio")
             
             # Return True always - we don't block calculation
             return True, message
             
         except Exception as e:
-            self.parent.log_message(f"❌ Validation error: {str(e)}", "buffer")
+            self.parent.log_message(f"❌ Validation error: {str(e)}", "gnuradio")
             return True, "Validation error - see log"
        
     def update_pilot_pattern_options(self, fft_size, gi):
@@ -2746,24 +2746,24 @@ class DVBTCalculatorTab:
                 if pp_str not in known_pp:
                     self.parent.log_message(
                         f"ℹ️ Note: {pp_str} not documented for {fft_str}+{gi_str} in Keysight docs",
-                        "buffer"
+                        "gnuradio"
                     )
                     self.parent.log_message(
                         f"   Documented PPs: {', '.join(known_pp)}",
-                        "buffer"
+                        "gnuradio"
                     )
             
         except Exception as e:
-            self.parent.log_message(f"⚠️ Error checking PP compatibility: {e}", "buffer")
+            self.parent.log_message(f"⚠️ Error checking PP compatibility: {e}", "gnuradio")
 
     def save_preset(self):
         """Save current parameters as GNU Radio preset with JSON scheme"""
         if not self.calculation_results:
-            self.parent.log_message("❌ Please calculate bitrate first!", "buffer")
+            self.parent.log_message("❌ Please calculate bitrate first!", "gnuradio")
             return
         
         try:
-            self.parent.log_message("🔄 Starting preset save process...", "buffer")
+            self.parent.log_message("🔄 Starting preset save process...", "gnuradio")
             
             # Получаем строковые значения из переменных интерфейса
             bandwidth_clean = self.bandwidth_var.get().replace(' ', '_').replace('.', '_')
@@ -2777,7 +2777,7 @@ class DVBTCalculatorTab:
             bitrate_normal = self.calculation_results.get('bitrate_normal', 0)
             bitrate_kbps = round(bitrate_normal / 1000)
             
-            self.parent.log_message(f"📝 Parameters: {bandwidth_clean}, {modulation_clean}, {code_rate_clean}", "buffer")
+            self.parent.log_message(f"📝 Parameters: {bandwidth_clean}, {modulation_clean}, {code_rate_clean}", "gnuradio")
             
             # ОДИНАКОВОЕ имя для Python и JSON файлов
             base_filename = f"{bandwidth_clean}_{modulation_clean}_{code_rate_clean}_{fft_size_clean}_{gi_clean}_{pp_clean}_{bitrate_kbps}kbps"
@@ -2790,7 +2790,7 @@ class DVBTCalculatorTab:
             python_file_path = os.path.join(self.modulator_presets_dir, base_filename + ".py")
             json_file_path = os.path.join(self.saved_schemes_dir, base_filename + ".json")
             
-            self.parent.log_message(f"📁 File paths: {python_file_path}, {json_file_path}", "buffer")
+            self.parent.log_message(f"📁 File paths: {python_file_path}, {json_file_path}", "overlay")
             
             # Генерируем валидное имя класса
             class_name = base_filename
@@ -2830,31 +2830,31 @@ class DVBTCalculatorTab:
                 if param in self.calculation_results:
                     save_data['parameters'][param] = self.calculation_results[param]
             
-            self.parent.log_message("💾 Saving JSON file...", "buffer")
+            self.parent.log_message("💾 Saving JSON file...", "gnuradio")
             with open(json_file_path, 'w') as f:
                 json.dump(save_data, f, indent=4)
             
-            self.parent.log_message("📄 Generating GNU Radio script...", "buffer")
+            self.parent.log_message("📄 Generating GNU Radio script...", "gnuradio")
             # Генерируем скрипт GNU Radio
             script_content = self.generate_gnuradio_script(base_filename + ".py", class_name)
             
-            self.parent.log_message("💾 Saving Python script...", "buffer")
+            self.parent.log_message("💾 Saving Python script...", "gnuradio")
             # Сохраняем скрипт
             with open(python_file_path, 'w') as f:
                 f.write(script_content)
             
-            self.parent.log_message("🔄 Updating modulator presets...", "buffer")
+            self.parent.log_message("🔄 Updating modulator presets...", "gnuradio")
             # Обновляем пресеты в основном приложении
             self.parent.update_modulator_presets()
             
-            self.parent.log_message("✅ Preset saved successfully!", "buffer")
+            self.parent.log_message("✅ Preset saved successfully!", "gnuradio")
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error saving preset: {str(e)}", "buffer")
+            self.parent.log_message(f"❌ Error saving preset: {str(e)}", "gnuradio")
             # Более подробная информация об ошибке
             import traceback
             error_details = traceback.format_exc()
-            self.parent.log_message(f"❌ Error details: {error_details}", "buffer")
+            self.parent.log_message(f"❌ Error details: {error_details}", "gnuradio")
 
     def generate_gnuradio_script(self, filename, class_name):
         """Generate GNU Radio Python script with calculated parameters"""
@@ -3452,9 +3452,9 @@ if __name__ == '__main__':
             return script_template
             
         except Exception as e:
-            self.parent.log_message(f"❌ Error generating GNU Radio script: {str(e)}", "buffer")
+            self.parent.log_message(f"❌ Error generating GNU Radio script: {str(e)}", "gnuradio")
             import traceback
-            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "buffer")
+            self.parent.log_message(f"❌ Traceback: {traceback.format_exc()}", "gnuradio")
             return f"# Error generating script: {str(e)}\n# Traceback: {traceback.format_exc()}"
             
 class MPCPlaylistManager:
@@ -3730,14 +3730,14 @@ class MPCPlaylistManager:
             mpc_path = self.mpc_player_path.get()
             if not os.path.exists(mpc_path):
                 # Try to open with default association
-                self.parent.log_message(f"MPC player not found at {mpc_path}, trying default association", "buffer")
+                self.parent.log_message(f"MPC player not found at {mpc_path}, trying default association", "overlay")
                 subprocess.Popen([playlist_path], shell=True)
             else:
                 # Open with specified MPC player
                 subprocess.Popen([mpc_path, playlist_path])
             
             self.playlist_status_var.set("Playback started")
-            self.parent.log_message(f"Started playlist playback: {self.playlist_name.get()}", "buffer")
+            self.parent.log_message(f"Started playlist playback: {self.playlist_name.get()}", "overlay")
             
         except Exception as e:
             error_msg = f"Error starting playback: {str(e)}"
@@ -4788,7 +4788,7 @@ class DVBT2EncoderGUI:
             if os.path.exists(abs_path):
                 self.emergency_file_path.set(abs_path)
             else:
-                self.log_message(f"⚠️ Emergency file not found: {abs_path}", "buffer")
+                self.log_message(f"⚠️ Emergency file not found: {abs_path}", "monitor")
                 
         # Load encoder presets
         self.load_encoder_presets()        
@@ -4928,7 +4928,7 @@ class DVBT2EncoderGUI:
         
         # Можно обновить отображение диапазона на GUI
         min_gain, max_gain = config['gain_range']
-        self.log_message(f"Device {device} gain range: {min_gain} to {max_gain} dB", "buffer")            
+        self.log_message(f"Device {device} gain range: {min_gain} to {max_gain} dB", "gnuradio")            
             
     def get_device_arguments(self):
         """Get formatted device arguments based on selected device and mode"""
@@ -4965,7 +4965,7 @@ class DVBT2EncoderGUI:
             preset_dir = os.path.join(script_dir, "gnu_modulator_presets")
             
             if not os.path.exists(preset_dir):
-                self.log_message(f"❌ Directory not found: {preset_dir}", "buffer")
+                self.log_message(f"❌ Directory not found: {preset_dir}", "gnuradio")
                 return
                 
             # Находим все .py файлы
@@ -4975,30 +4975,30 @@ class DVBT2EncoderGUI:
                     py_files.append(os.path.join(preset_dir, file))
                     
             if not py_files:
-                self.log_message(f"⚠️ No .py files found in {preset_dir}", "buffer")
+                self.log_message(f"⚠️ No .py files found in {preset_dir}", "gnuradio")
                 return
                 
-            self.log_message(f"🔄 Updating {len(py_files)} presets:", "buffer")
-            self.log_message(f"  Device: {self.selected_device.get()}", "buffer")
-            self.log_message(f"  Frequency: {frequency} Hz", "buffer")
-            self.log_message(f"  RF Gain: {rf_gain} dB", "buffer")
+            self.log_message(f"🔄 Updating {len(py_files)} presets:", "gnuradio")
+            self.log_message(f"  Device: {self.selected_device.get()}", "gnuradio")
+            self.log_message(f"  Frequency: {frequency} Hz", "gnuradio")
+            self.log_message(f"  RF Gain: {rf_gain} dB", "gnuradio")
             
             updated_count = 0
             for py_file in py_files:
                 try:
                     preset_name = os.path.basename(py_file)
-                    self.log_message(f"  📝 Updating: {preset_name}", "buffer")
+                    self.log_message(f"  📝 Updating: {preset_name}", "gnuradio")
                     
                     # Вызываем оригинальную функцию с 4 аргументами
                     self.update_preset_script_internal(py_file, frequency, rf_gain, device_args)
                     updated_count += 1
                 except Exception as e:
-                    self.log_message(f"  ❌ Error updating {preset_name}: {e}", "buffer")
+                    self.log_message(f"  ❌ Error updating {preset_name}: {e}", "gnuradio")
                     
-            self.log_message(f"✅ Updated {updated_count}/{len(py_files)} presets", "buffer")
+            self.log_message(f"✅ Updated {updated_count}/{len(py_files)} presets", "gnuradio")
             
         except Exception as e:
-            self.log_message(f"❌ Error in update_preset_script: {e}", "buffer")
+            self.log_message(f"❌ Error in update_preset_script: {e}", "gnuradio")
 
     def update_preset_script_internal(self, script_path, frequency, rf_gain, device_args):
         """Update frequency, gain and device args in a Python preset script"""
@@ -5574,10 +5574,10 @@ class DVBT2EncoderGUI:
             if updated:
                 with open(script_path, 'wb') as f:
                     f.write('\n'.join(lines).encode('utf-8'))
-                self.log_message(f"    ✅ {os.path.basename(script_path)} updated", "buffer")
+                self.log_message(f"    ✅ {os.path.basename(script_path)} updated", "gnuradio")
                     
         except Exception as e:
-            self.log_message(f"❌ Error updating script {os.path.basename(script_path)}: {e}", "buffer")
+            self.log_message(f"❌ Error updating script {os.path.basename(script_path)}: {e}", "gnuradio")
 
     def debounced_save_and_update_presets(self):
         """Save config AND update presets with debounce"""
@@ -5726,7 +5726,7 @@ class DVBT2EncoderGUI:
                 return preset_name
                 
         except Exception as e:
-            self.log_message(f"Error parsing preset name: {e}", "overlay")
+            self.log_message(f"Error parsing preset name: {e}", "gnuradio")
             return preset_name
             
     def sync_calculator_with_preset(self):
@@ -5734,7 +5734,7 @@ class DVBT2EncoderGUI:
         try:
             if hasattr(self, 'calculator') and self.modulator_preset.get():
                 preset_name = self.modulator_preset.get()
-                self.log_message(f"🔄 Syncing calculator with preset: {preset_name}", "buffer")
+                self.log_message(f"🔄 Syncing calculator with preset: {preset_name}", "gnuradio")
                 
                 # Load parameters into calculator
                 self.calculator.load_preset_parameters(preset_name)
@@ -5743,9 +5743,9 @@ class DVBT2EncoderGUI:
                 if hasattr(self.calculator, 'calculate'):
                     self.calculator.calculate()
                     
-                self.log_message(f"✅ Calculator synced with preset: {preset_name}", "buffer")
+                self.log_message(f"✅ Calculator synced with preset: {preset_name}", "gnuradio")
         except Exception as e:
-            self.log_message(f"❌ Error syncing calculator: {e}", "buffer")            
+            self.log_message(f"❌ Error syncing calculator: {e}", "gnuradio")            
             
     def calculate_video_settings_from_preset(self, preset_name):
         """Calculate optimal video settings based on selected modulator preset"""
@@ -5866,12 +5866,12 @@ class DVBT2EncoderGUI:
         current_rf_gain = self.rf_gain.get()
         expected_conversion = self.convert_rf_gain_to_modulator(gui_percent)
         
-        self.log_message(f"🔧 RF Gain Debug: GUI={gui_percent}% -> Current RF={current_rf_gain} dB", "buffer")
-        self.log_message(f"🔧 Expected conversion: {gui_percent}% -> {expected_conversion} dB", "buffer")
+        self.log_message(f"🔧 RF Gain Debug: GUI={gui_percent}% -> Current RF={current_rf_gain} dB", "gnuradio")
+        self.log_message(f"🔧 Expected conversion: {gui_percent}% -> {expected_conversion} dB", "gnuradio")
         
         # Проверяем соответствие
         if current_rf_gain != expected_conversion:
-            self.log_message(f"⚠️ WARNING: Current RF gain ({current_rf_gain} dB) doesn't match expected ({expected_conversion} dB)", "buffer")
+            self.log_message(f"⚠️ WARNING: Current RF gain ({current_rf_gain} dB) doesn't match expected ({expected_conversion} dB)", "gnuradio")
         
         self.set_gnuradio_variable("rf_gain", current_rf_gain)
         self.save_config()
@@ -5886,7 +5886,7 @@ class DVBT2EncoderGUI:
             
             for attempt in range(max_retries):
                 try:
-                    self.log_message(f"Attempting to connect to GNU Radio (attempt {attempt+1}/{max_retries})...", "buffer")
+                    self.log_message(f"Attempting to connect to GNU Radio (attempt {attempt+1}/{max_retries})...", "gnuradio")
                     self.root.after(300, lambda: self.connection_status_var.set(f"🔄 Connecting... ({attempt+1}/{max_retries})"))
                     
                     self.server = xmlrpc.client.ServerProxy(self.server_url, allow_none=True)
@@ -5897,7 +5897,7 @@ class DVBT2EncoderGUI:
                     self.connected = True
                     self.root.after(400, lambda: self.connection_status_var.set("✅ Connected"))
                     self.root.after(500, lambda: self.connection_indicator.config(foreground='green'))
-                    self.log_message("✅ Connected to GNU Radio XML-RPC server", "buffer")
+                    self.log_message("✅ Connected to GNU Radio XML-RPC server", "gnuradio")
                                        
                     # Get current values from GNU Radio
                     self.get_gnuradio_values()
@@ -5906,15 +5906,15 @@ class DVBT2EncoderGUI:
                 except Exception as e:
                     if attempt < max_retries - 1:
                         self.root.after(2000, lambda: self.connection_status_var.set(f"🔄 Retrying... ({attempt+1}/{max_retries})"))
-                        self.log_message(f"⚠ Connection attempt {attempt+1}/{max_retries} failed: {e}", "buffer")
-                        self.log_message(f"⚠ Retrying in {retry_delay}s...", "buffer")
+                        self.log_message(f"⚠ Connection attempt {attempt+1}/{max_retries} failed: {e}", "gnuradio")
+                        self.log_message(f"⚠ Retrying in {retry_delay}s...", "gnuradio")
                         time.sleep(retry_delay)
                     else:
                         self.connected = False
                         self.root.after(0, lambda: self.connection_status_var.set("❌ Disconnected"))
                         self.root.after(0, lambda: self.connection_indicator.config(foreground='red'))
-                        self.log_message(f"❌ Failed to connect to GNU Radio after {max_retries} attempts: {e}", "buffer")
-                        self.log_message("💡 Make sure GNU Radio script is running with XML-RPC server on port 8001", "buffer")
+                        self.log_message(f"❌ Failed to connect to GNU Radio after {max_retries} attempts: {e}", "gnuradio")
+                        self.log_message("💡 Make sure GNU Radio script is running with XML-RPC server on port 8001", "gnuradio")
         
         threading.Thread(target=connect_thread, daemon=True).start()
         
@@ -5957,21 +5957,21 @@ class DVBT2EncoderGUI:
     def reconnect_gnuradio(self):
         """Manual reconnection to GNU Radio"""
         if self.connected:
-            self.log_message("Already connected to GNU Radio", "buffer")
+            self.log_message("Already connected to GNU Radio", "gnuradio")
             return
             
-        self.log_message("Attempting to reconnect to GNU Radio...", "buffer")
+        self.log_message("Attempting to reconnect to GNU Radio...", "gnuradio")
         self.connect_to_gnuradio()
     
     def set_gnuradio_variable(self, var_name, value):
         """Set variable in GNU Radio via XML-RPC"""
         # ⚡ ИЗМЕНЕНИЕ: Проверяем, что модулятор запущен
         if not self.modulator_running:
-            self.log_message(f"⚠ Modulator not running, skipping {var_name} set", "buffer")
+            self.log_message(f"⚠ Modulator not running, skipping {var_name} set", "gnuradio")
             return
             
         if not self.connected:
-            self.log_message(f"⚠ Not connected to GNU Radio, skipping {var_name} set", "buffer")
+            self.log_message(f"⚠ Not connected to GNU Radio, skipping {var_name} set", "gnuradio")
             return
             
         def set_thread():
@@ -5988,10 +5988,10 @@ class DVBT2EncoderGUI:
                     
                 # Call XML-RPC method
                 result = getattr(self.server, method_name)(value_to_set)
-                self.log_message(f"✅ GNU Radio {var_name} set to {value_to_set}", "buffer")
+                self.log_message(f"✅ GNU Radio {var_name} set to {value_to_set}", "gnuradio")
                 
             except Exception as e:
-                self.log_message(f"❌ Error setting GNU Radio {var_name}: {e}", "buffer")
+                self.log_message(f"❌ Error setting GNU Radio {var_name}: {e}", "gnuradio")
                 
         threading.Thread(target=set_thread, daemon=True).start()
 
@@ -6006,12 +6006,12 @@ class DVBT2EncoderGUI:
                 rf_gain = self.server.get_rf_gain()
                 # Convert to GUI percentage
                 rf_percent = self.convert_rf_gain_to_gui(rf_gain)
-                self.log_message(f"🔧 Got from GNU Radio: RF={rf_gain} dB -> GUI={rf_percent}%", "buffer")
+                self.log_message(f"🔧 Got from GNU Radio: RF={rf_gain} dB -> GUI={rf_percent}%", "gnuradio")
                                 
-                self.log_message("✅ Retrieved current values from GNU Radio", "buffer")
+                self.log_message("✅ Retrieved current values from GNU Radio", "gnuradio")
                 
             except Exception as e:
-                self.log_message(f"❌ Error getting GNU Radio values: {e}", "buffer")
+                self.log_message(f"❌ Error getting GNU Radio values: {e}", "gnuradio")
     
     def create_gui(self):
         """Create the main GUI layout"""
@@ -6241,7 +6241,7 @@ class DVBT2EncoderGUI:
             )
             
             if result.returncode != 0:
-                self.log_message("PowerShell command failed", "buffer")
+                self.log_message("PowerShell command failed", "monitor")
                 return []
             
             # Парсим JSON
@@ -6271,18 +6271,18 @@ class DVBT2EncoderGUI:
                             'window_title': window_title
                         })
                 
-                self.log_message(f"Found {len(windows_list)} windows for capture (excluded {len(windows_data)-len(windows_list)} system processes)", "buffer")
+                self.log_message(f"Found {len(windows_list)} windows for capture (excluded {len(windows_data)-len(windows_list)} system processes)", "monitor")
                 return windows_list
                 
             except json.JSONDecodeError as e:
-                self.log_message(f"JSON parse error: {e}", "buffer")
+                self.log_message(f"JSON parse error: {e}", "monitor")
                 return []
             
         except subprocess.TimeoutExpired:
-            self.log_message("Timeout getting windows list", "buffer")
+            self.log_message("Timeout getting windows list", "monitor")
             return []
         except Exception as e:
-            self.log_message(f"Error getting windows: {e}", "buffer")
+            self.log_message(f"Error getting windows: {e}", "monitor")
             return []
 
     def refresh_channel_windows(self, channel_num):
@@ -6330,14 +6330,14 @@ class DVBT2EncoderGUI:
                     similar = self.find_similar_window(current_value, unique_values)
                     if similar:
                         channel_data['window_title'].set(similar)
-                        self.log_message(f"CH{channel_num}: Found similar window: {similar[:50]}...", "buffer")
+                        self.log_message(f"CH{channel_num}: Found similar window: {similar[:50]}...", "monitor")
                     else:
                         channel_data['window_title'].set(unique_values[0])
-                        self.log_message(f"CH{channel_num}: Using first available window", "buffer")
+                        self.log_message(f"CH{channel_num}: Using first available window", "monitor")
                 else:  # gfxcapture
                     # Для процессов берем первое
                     channel_data['window_title'].set(unique_values[0])
-                    self.log_message(f"CH{channel_num}: Using first available process", "buffer")
+                    self.log_message(f"CH{channel_num}: Using first available process", "monitor")
             elif unique_values:
                 # Нет выбранного - берем первое
                 channel_data['window_title'].set(unique_values[0])
@@ -6363,7 +6363,7 @@ class DVBT2EncoderGUI:
         if not window_titles:
             return None
         
-        self.log_message(f"Looking for window similar to: '{old_title[:50]}...'", "buffer")
+        self.log_message(f"Looking for window similar to: '{old_title[:50]}...'", "monitor")
         
         # 1. Сначала ищем точное совпадение
         if old_title in window_titles:
@@ -6373,18 +6373,18 @@ class DVBT2EncoderGUI:
         base_pattern = re.match(r'^([A-Za-z0-9_\-\.\s]+?)(?:\s+[Vv]\d+|\s*[-\[]|$)', old_title)
         if base_pattern:
             base_name = base_pattern.group(1).strip()
-            self.log_message(f"Base name extracted: '{base_name}'", "buffer")
+            self.log_message(f"Base name extracted: '{base_name}'", "monitor")
             
             for window in window_titles:
                 if base_name in window:
-                    self.log_message(f"Found window containing base name: '{window[:50]}...'", "buffer")
+                    self.log_message(f"Found window containing base name: '{window[:50]}...'", "monitor")
                     return window
         
         # 3. Если не нашли, ищем по ключевым словам
         words = re.findall(r'[A-Za-z0-9_]+', old_title)
         if len(words) >= 2:
             key_words = words[:3]
-            self.log_message(f"Key words: {key_words}", "buffer")
+            self.log_message(f"Key words: {key_words}", "monitor")
             
             best_match = None
             best_score = 0
@@ -6401,7 +6401,7 @@ class DVBT2EncoderGUI:
                     best_match = window
             
             if best_score >= 2:
-                self.log_message(f"Best match with score {best_score}: '{best_match[:50]}...'", "buffer")
+                self.log_message(f"Best match with score {best_score}: '{best_match[:50]}...'", "monitor")
                 return best_match
         
         return None
@@ -6409,7 +6409,7 @@ class DVBT2EncoderGUI:
     def create_default_channel_1(self):
         """Create default CH1 with values from main settings"""
         try:
-            self.log_message("Creating default CH1...", "buffer")
+            self.log_message("Creating default CH1...", "monitor")
             
             # Создаем CH1
             channel_data = self.add_channel_widget(1)
@@ -6444,7 +6444,7 @@ class DVBT2EncoderGUI:
                     channel_data['media_path'].set("")
                     channel_data['randomize'].set(False)
                     
-                    self.log_message(f"  ✓ Default CH1 created: '{ch_name}'", "buffer")
+                    self.log_message(f"  ✓ Default CH1 created: '{ch_name}'", "monitor")
                     
                     # Обновляем списки устройств с задержкой
                     self.root.after(300, lambda: self.populate_channel_device_lists(1))
@@ -6453,7 +6453,7 @@ class DVBT2EncoderGUI:
                     self.root.after(500, self.refresh_multiplex_devices)
                     
                 except Exception as e:
-                    self.log_message(f"  ✗ Error creating default CH1: {e}", "buffer")
+                    self.log_message(f"  ✗ Error creating default CH1: {e}", "monitor")
             
             # Устанавливаем значения с задержкой
             self.root.after(100, set_default_values)
@@ -6462,7 +6462,7 @@ class DVBT2EncoderGUI:
             self.root.after(500, self.update_add_button_state)
             
         except Exception as e:
-            self.log_message(f"Error creating default CH1: {e}", "buffer")
+            self.log_message(f"Error creating default CH1: {e}", "monitor")
             import traceback
             traceback.print_exc()
 
@@ -6470,7 +6470,7 @@ class DVBT2EncoderGUI:
         """Create widget for a single channel - компактная версия"""
         # Проверяем не существует ли уже канал
         if channel_num in self.multiplex_channels:
-            self.log_message(f"Channel {channel_num} already exists, skipping", "buffer")
+            self.log_message(f"Channel {channel_num} already exists, skipping", "overlay")
             return self.multiplex_channels[channel_num]
         
         frame = ttk.LabelFrame(self.channels_container, text=f"CH{channel_num}", padding="4")
@@ -6486,7 +6486,7 @@ class DVBT2EncoderGUI:
             'audio_device': tk.StringVar(),
             'window_title': tk.StringVar(),  
             'window_combo': None,  
-            'capture_method': tk.StringVar(value='gdigrab'),  # gdigrab или gfxcapture
+            'capture_method': tk.StringVar(value='gdigrab'),  
             'capture_method_combo': None,            
             'media_path': tk.StringVar(),
             'randomize': tk.BooleanVar(),
@@ -7009,10 +7009,10 @@ class DVBT2EncoderGUI:
                     if key in channel_data:
                         channel_data[key].trace_add('write', trigger_autosave)
             
-            self.log_message(f"Created radio settings for CH{channel_num} with stdin updates", "buffer")
+            self.log_message(f"Created radio settings for CH{channel_num} with stdin updates", "monitor")
             
         except Exception as e:
-            self.log_message(f"Error creating radio settings: {e}", "buffer")
+            self.log_message(f"Error creating radio settings: {e}", "monitor")
             import traceback
             traceback.print_exc()
 
@@ -7041,9 +7041,9 @@ class DVBT2EncoderGUI:
                 channel_data['saved_video_pid'] = program.get('video_pid', '')
                 channel_data['saved_audio_pid'] = program.get('audio_pid', '')
                 
-                self.log_message(f"Saved PID for CH{channel_num}:", "buffer")
-                self.log_message(f"  Video PID: {program.get('video_pid', 'N/A')}", "buffer")
-                self.log_message(f"  Audio PID: {program.get('audio_pid', 'N/A')}", "buffer")
+                self.log_message(f"Saved PID for CH{channel_num}:", "monitor")
+                self.log_message(f"  Video PID: {program.get('video_pid', 'N/A')}", "monitor")
+                self.log_message(f"  Audio PID: {program.get('audio_pid', 'N/A')}", "monitor")
                 
                 self.save_config()
                 break
@@ -7055,7 +7055,7 @@ class DVBT2EncoderGUI:
         
         if not url:
             if not validate_only:
-                self.log_message(f"❌ No URL specified for CH{channel_num}", "buffer")
+                self.log_message(f"❌ No URL specified for CH{channel_num}", "monitor")
                 messagebox.showerror("Error", f"Please enter URL for CH{channel_num}")
             return False
         
@@ -7063,7 +7063,7 @@ class DVBT2EncoderGUI:
         
         try:
             # ВСЕГДА логируем начало анализа
-            self.log_message(f"🔍 Analyzing UDP source CH{channel_num}: {url[:80]}...", "buffer")
+            self.log_message(f"🔍 Analyzing UDP source CH{channel_num}: {url[:80]}...", "monitor")
             
             # Команда для анализа (2 секунды достаточно)
             cmd = [ffmpeg_path, '-i', url, '-t', '2', '-f', 'null', '-']
@@ -7083,12 +7083,12 @@ class DVBT2EncoderGUI:
             is_valid = 'Input #0' in stderr and 'Stream #' in stderr
             
             if not is_valid:
-                self.log_message(f"❌ CH{channel_num} UDP stream not responding: {url[:50]}...", "buffer")
+                self.log_message(f"❌ CH{channel_num} UDP stream not responding: {url[:50]}...", "monitor")
                 return False
             
             # Если только валидация - возвращаем успех
             if validate_only:
-                self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "buffer")
+                self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "monitor")
                 return True
             
             # ⭐ ПАРСИНГ ПРОГРАММ (даже если validate_only=False, мы все равно парсим) ⭐
@@ -7110,18 +7110,18 @@ class DVBT2EncoderGUI:
             # Автоматически выбираем первую программу если есть
             if programs:
                 self.root.after(100, lambda: channel_data['selected_program'].set(programs[0]['name']))
-                self.log_message(f"✅ Found {len(programs)} programs in CH{channel_num}", "buffer")
+                self.log_message(f"✅ Found {len(programs)} programs in CH{channel_num}", "monitor")
             else:
-                self.log_message(f"⚠️ No programs found in CH{channel_num}", "buffer")
+                self.log_message(f"⚠️ No programs found in CH{channel_num}", "monitor")
             
             self.save_config()
             return True
                 
         except subprocess.TimeoutExpired:
-            self.log_message(f"❌ CH{channel_num} UDP stream timeout (no response)", "buffer")
+            self.log_message(f"❌ CH{channel_num} UDP stream timeout (no response)", "monitor")
             return False
         except Exception as e:
-            self.log_message(f"❌ Error analyzing UDP source CH{channel_num}: {str(e)[:100]}", "buffer")
+            self.log_message(f"❌ Error analyzing UDP source CH{channel_num}: {str(e)[:100]}", "monitor")
             return False
 
     def parse_ffmpeg_output(self, output):
@@ -7183,9 +7183,9 @@ class DVBT2EncoderGUI:
             programs.append(current_program)
         
         # Логируем найденные программы
-        self.log_message(f"Parsed {len(programs)} programs:", "buffer")
+        self.log_message(f"Parsed {len(programs)} programs:", "monitor")
         for program in programs:
-            self.log_message(f"  {program['name']}: Video PID={program['video_pid']}, Audio PID={program['audio_pid']}", "buffer")
+            self.log_message(f"  {program['name']}: Video PID={program['video_pid']}, Audio PID={program['audio_pid']}", "monitor")
         
         return programs
                 
@@ -7267,7 +7267,7 @@ class DVBT2EncoderGUI:
                     channel_data['audio_device'].set(available_audio[0])
                         
         except Exception as e:
-            self.log_message(f"Error updating device lists for CH{channel_num}: {e}", "buffer")
+            self.log_message(f"Error updating device lists for CH{channel_num}: {e}", "monitor")
                      
     def refresh_multiplex_devices(self):
         """Refresh device lists for all channels"""
@@ -7286,7 +7286,7 @@ class DVBT2EncoderGUI:
         """Handle source type change with automatic device refresh"""
         # Убедимся что канал существует
         if channel_num not in self.multiplex_channels:
-            self.log_message(f"Error: Channel {channel_num} not found when changing source type", "buffer")
+            self.log_message(f"Error: Channel {channel_num} not found when changing source type", "monitor")
             return
         
         channel_data = self.multiplex_channels[channel_num]
@@ -7377,13 +7377,13 @@ class DVBT2EncoderGUI:
                 # Находим номер канала по данным
                 for ch_num, ch_data in self.multiplex_channels.items():
                     if ch_data is channel_data:
-                        self.log_message(f"Set background picture for CH{ch_num}: {filename}", "buffer")
+                        self.log_message(f"Set background picture for CH{ch_num}: {filename}", "monitor")
                         # Сохраняем конфиг
                         self.save_config()
                         break
                         
         except Exception as e:
-            self.log_message(f"Error browsing for picture: {e}", "buffer")  
+            self.log_message(f"Error browsing for picture: {e}", "monitor")  
             
     def update_radio_gui_settings(self, channel_num):
         """Update GUI settings (color/size/text) via stdin to specific channel process"""
@@ -7402,12 +7402,12 @@ class DVBT2EncoderGUI:
         
         # Находим процесс канала
         if channel_num not in self.channel_processes:
-            self.log_message(f"GUI ERROR: CH{channel_num} process not found", "buffer")
+            self.log_message(f"GUI ERROR: CH{channel_num} process not found", "monitor")
             return
         
         process_info = self.channel_processes[channel_num]
         if not process_info.get('stdin'):
-            self.log_message(f"GUI ERROR: CH{channel_num} no stdin", "buffer")
+            self.log_message(f"GUI ERROR: CH{channel_num} no stdin", "monitor")
             return
         
         stdin = process_info['stdin']
@@ -7415,13 +7415,13 @@ class DVBT2EncoderGUI:
         # Проверяем, что процесс жив
         process = process_info.get('process')
         if process and process.poll() is not None:
-            self.log_message(f"GUI ERROR: CH{channel_num} process dead", "buffer")
+            self.log_message(f"GUI ERROR: CH{channel_num} process dead", "monitor")
             return
         
         # Получаем индексы фильтров из данных канала
         filter_indices = channel_data.get('filter_indices', {})
         if not filter_indices:
-            self.log_message(f"GUI ERROR: CH{channel_num} no filter indices", "buffer")
+            self.log_message(f"GUI ERROR: CH{channel_num} no filter indices", "monitor")
             return
         
         try:
@@ -7441,7 +7441,7 @@ class DVBT2EncoderGUI:
                     stdin.write(text_cmd)
                     stdin.flush()
                     setattr(self, last_text_key, radio_text)
-                    self.log_message(f"GUI: CH{channel_num} main text updated", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} main text updated", "monitor")
                 
                 # Проверяем, изменились ли размер/цвет
                 last_size_key = f"last_gui_text_size_ch{channel_num}"
@@ -7455,7 +7455,7 @@ class DVBT2EncoderGUI:
                     stdin.flush()
                     setattr(self, last_size_key, radio_text_size)
                     setattr(self, last_color_key, radio_text_color)
-                    self.log_message(f"GUI: CH{channel_num} text size/color updated", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} text size/color updated", "monitor")
             
             # 2. Метаданные (только если были включены при запуске)
             metadata_enabled = channel_data.get('metadata_enabled_at_start', False)
@@ -7485,7 +7485,7 @@ class DVBT2EncoderGUI:
                     setattr(self, last_mcolor_key, metadata_color)
                     setattr(self, last_msize_key, metadata_size)
                     setattr(self, last_mpos_key, metadata_position)
-                    self.log_message(f"GUI: CH{channel_num} metadata params updated", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} metadata params updated", "monitor")
             
             # 3. Время (только если было включено при запуске)
             time_enabled = channel_data.get('time_enabled_at_start', False)
@@ -7508,7 +7508,7 @@ class DVBT2EncoderGUI:
                     
                     setattr(self, last_tcolor_key, time_color)
                     setattr(self, last_tsize_key, time_size)
-                    self.log_message(f"GUI: CH{channel_num} time params updated", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} time params updated", "monitor")
                     
             # 4. Фон (цвет или картинка)
             bg_type = channel_data['radio_bg_type'].get()
@@ -7520,7 +7520,7 @@ class DVBT2EncoderGUI:
                 if last_bg != bg_color:
                     # Для изменения фона цвета нужно перезапустить входной источник
                     # Это сложнее, можно просто залогировать
-                    self.log_message(f"GUI: CH{channel_num} background color changed to {bg_color} (requires stream restart)", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} background color changed to {bg_color} (requires stream restart)", "monitor")
                     setattr(self, last_bg_key, bg_color)
             else:
                 # Для картинки - просто логируем
@@ -7529,20 +7529,20 @@ class DVBT2EncoderGUI:
                 last_pic = getattr(self, last_pic_key, "")
                 
                 if last_pic != bg_picture:
-                    self.log_message(f"GUI: CH{channel_num} background picture changed (requires stream restart)", "buffer")
+                    self.log_message(f"GUI: CH{channel_num} background picture changed (requires stream restart)", "monitor")
                     setattr(self, last_pic_key, bg_picture)
                     
             # Сохраняем конфиг при изменениях
             self.save_config()
             
         except BrokenPipeError:
-            self.log_message(f"GUI ERROR: CH{channel_num} pipe broken", "buffer")
+            self.log_message(f"GUI ERROR: CH{channel_num} pipe broken", "monitor")
         except Exception as e:
             error_msg = str(e)
             if "I/O operation on closed file" in error_msg:
-                self.log_message(f"GUI ERROR: CH{channel_num} stdin closed", "buffer")
+                self.log_message(f"GUI ERROR: CH{channel_num} stdin closed", "monitor")
             else:
-                self.log_message(f"GUI ERROR: CH{channel_num} {error_msg[:80]}", "buffer")          
+                self.log_message(f"GUI ERROR: CH{channel_num} {error_msg[:80]}", "monitor")          
                       
     def get_active_channels(self):
         """Get list of active (enabled) channels"""
@@ -7594,7 +7594,7 @@ class DVBT2EncoderGUI:
                     elif ch_data.get('time_enabled_at_start', False):
                         filter_indices['time'] = base_index + 1
                     
-                    self.log_message(f"CH{channel_num} filter indices: {filter_indices}", "buffer")
+                    self.log_message(f"CH{channel_num} filter indices: {filter_indices}", "monitor")
                     return filter_indices
                 
                 # Увеличиваем base_index для следующего канала
@@ -7611,7 +7611,7 @@ class DVBT2EncoderGUI:
             return None
             
         except Exception as e:
-            self.log_message(f"Error calculating filter indices: {e}", "buffer")
+            self.log_message(f"Error calculating filter indices: {e}", "monitor")
             return None
                        
     def parse_metadata_from_url(self, url):
@@ -7688,7 +7688,7 @@ class DVBT2EncoderGUI:
         """Handle channel enable/disable"""
         # Убедимся что канал существует
         if channel_num not in self.multiplex_channels:
-            self.log_message(f"Error: Channel {channel_num} not found when toggling", "buffer")
+            self.log_message(f"Error: Channel {channel_num} not found when toggling", "monitor")
             return
         
         self.save_config()
@@ -7742,7 +7742,7 @@ class DVBT2EncoderGUI:
         """Browse for media folder ONLY"""
         # Убедимся что канал существует
         if channel_num not in self.multiplex_channels:
-            self.log_message(f"Error: Channel {channel_num} not found in multiplex_channels", "buffer")
+            self.log_message(f"Error: Channel {channel_num} not found in multiplex_channels", "monitor")
             return
         
         channel_data = self.multiplex_channels[channel_num]
@@ -7763,7 +7763,7 @@ class DVBT2EncoderGUI:
         """Create media list file for ffmpeg input"""
         # Убедимся что channel_num существует в multiplex_channels
         if channel_num not in self.multiplex_channels:
-            self.log_message(f"Error: Channel {channel_num} not found in multiplex_channels", "buffer")
+            self.log_message(f"Error: Channel {channel_num} not found in multiplex_channels", "monitor")
             return None
         
         channel_data = self.multiplex_channels[channel_num]
@@ -7782,7 +7782,7 @@ class DVBT2EncoderGUI:
         
         try:
             if not os.path.exists(folder_path):
-                self.log_message(f"Folder does not exist: {folder_path}", "buffer")
+                self.log_message(f"Folder does not exist: {folder_path}", "monitor")
                 return None
             
             for root, dirs, files in os.walk(folder_path):
@@ -7790,19 +7790,19 @@ class DVBT2EncoderGUI:
                     if any(file.lower().endswith(ext) for ext in media_extensions):
                         media_files.append(os.path.join(root, file))
         except Exception as e:
-            self.log_message(f"Error scanning folder {folder_path}: {e}", "buffer")
+            self.log_message(f"Error scanning folder {folder_path}: {e}", "monitor")
             return None
         
         if not media_files:
-            self.log_message(f"Warning: No media files found in {folder_path}", "buffer")
+            self.log_message(f"Warning: No media files found in {folder_path}", "monitor")
             # Все равно создаем пустой файл плейлиста
             try:
                 with open(list_path, 'w', encoding='utf-8') as f:
                     f.write("# Empty playlist - no media files found\n")
-                self.log_message(f"Created empty playlist for CH{channel_num}: {list_path}", "buffer")
+                self.log_message(f"Created empty playlist for CH{channel_num}: {list_path}", "monitor")
                 return list_path
             except Exception as e:
-                self.log_message(f"Error creating empty playlist: {e}", "buffer")
+                self.log_message(f"Error creating empty playlist: {e}", "monitor")
                 return None
         
         # Случайный порядок если нужно
@@ -7819,11 +7819,11 @@ class DVBT2EncoderGUI:
                     safe_path = abs_path.replace("\\", "/").replace("'", "'\\''")
                     f.write(f"file '{safe_path}'\n")
             
-            self.log_message(f"Created playlist for CH{channel_num}: {list_path} ({len(media_files)} files)", "buffer")
+            self.log_message(f"Created playlist for CH{channel_num}: {list_path} ({len(media_files)} files)", "monitor")
             return list_path
             
         except Exception as e:
-            self.log_message(f"Error creating playlist {list_path}: {e}", "buffer")
+            self.log_message(f"Error creating playlist {list_path}: {e}", "monitor")
             return None
 
     def load_multiplex_channels(self):
@@ -7833,7 +7833,7 @@ class DVBT2EncoderGUI:
             if hasattr(self, 'multiplex_channels_loaded') and self.multiplex_channels_loaded:
                 return
                 
-            self.log_message("Loading multiplex channels from stored config...", "buffer")
+            self.log_message("Loading multiplex channels from stored config...", "overlay")
             
             # Проверяем, есть ли сохраненный конфиг
             if hasattr(self, 'multiplex_config_from_file') and self.multiplex_config_from_file:
@@ -7894,9 +7894,9 @@ class DVBT2EncoderGUI:
                         if channel_data['source_type'].get() == "input_devices":
                             self.root.after(300, lambda n=ch_num: self.populate_channel_device_lists(n))
                         
-                        self.log_message(f"  ✓ CH{ch_num}: '{channel_data['name'].get()}'", "buffer")
+                        self.log_message(f"  ✓ CH{ch_num}: '{channel_data['name'].get()}'", "monitor")
                 
-                self.log_message(f"Loaded {len(sorted_items)} channels from config", "buffer")
+                self.log_message(f"Loaded {len(sorted_items)} channels from config", "monitor")
                 
             else:
                 # Если нет сохраненного конфига, создаем CH1 по умолчанию
@@ -7909,7 +7909,7 @@ class DVBT2EncoderGUI:
             self.update_add_button_state()
             
         except Exception as e:
-            self.log_message(f"Error loading multiplex channels: {e}", "buffer")
+            self.log_message(f"Error loading multiplex channels: {e}", "monitor")
             import traceback
             traceback.print_exc()
                 
@@ -8259,10 +8259,10 @@ class DVBT2EncoderGUI:
                             description = (f"{params.get('modulation', '')} {params.get('code_rate', '')} | "
                                          f"{params.get('fft_size', '')} | GI: {params.get('guard_interval', '')}")
                         
-                        self.log_message(f"✅ Loaded parameters from JSON for: {preset_name}", "buffer")
+                        self.log_message(f"✅ Loaded parameters from JSON for: {preset_name}", "gnuradio")
                         
                     except Exception as e:
-                        self.log_message(f"⚠️ Error loading JSON for {preset_name}: {e}", "buffer")
+                        self.log_message(f"⚠️ Error loading JSON for {preset_name}: {e}", "gnuradio")
                         # Если JSON не загрузился, парсим из имени файла
                         bitrate_match = re.search(r'(\d+)kbps', preset_name)
                         if bitrate_match:
@@ -8272,7 +8272,7 @@ class DVBT2EncoderGUI:
                     bitrate_match = re.search(r'(\d+)kbps', preset_name)
                     if bitrate_match:
                         muxrate = f"{int(bitrate_match.group(1)) * 1000:.6f}"
-                    self.log_message(f"ℹ️ No JSON found for {preset_name}, using filename parsing", "buffer")
+                    self.log_message(f"ℹ️ No JSON found for {preset_name}, using filename parsing", "gnuradio")
                     
                 self.modulator_presets[preset_name] = {
                     'script': full_script_path,
@@ -8440,7 +8440,7 @@ class DVBT2EncoderGUI:
         ttk.Spinbox(buf_frame, from_=50, to=1000, textvariable=self.calibration_packets, width=8, font=('Arial', 9)).grid(row=1, column=3, padx=2, pady=1)
         
         ttk.Label(buf_frame, text="UDP Buff:", font=('Arial', 9)).grid(row=2, column=0, sticky='w', pady=1)
-        ttk.Spinbox(buf_frame, from_=0, to=50, increment=0.5, textvariable=self.udp_buffer_size, width=8, font=('Arial', 9)).grid(row=2, column=1, padx=2, pady=1)
+        ttk.Spinbox(buf_frame, from_=5, to=100, increment=5, textvariable=self.udp_buffer_size, width=8, font=('Arial', 9)).grid(row=2, column=1, padx=2, pady=1)
         
         ttk.Label(buf_frame, text="Buffer Divider:", font=('Arial', 9)).grid(row=2, column=2, sticky='w', pady=1, padx=(8,0))
         ttk.Spinbox(buf_frame, from_=1, to=16, textvariable=self.buffer_divider, width=8, font=('Arial', 9)).grid(row=2, column=3, padx=2, pady=1)
@@ -8880,6 +8880,10 @@ class DVBT2EncoderGUI:
         elif log_type == "overlay":
             self.overlay_log_text.insert(tk.END, log_msg)
             self.overlay_log_text.see(tk.END)
+        elif log_type == "monitor":
+            if hasattr(self, 'monitor_log_text'):
+                self.monitor_log_text.insert(tk.END, log_msg)
+                self.monitor_log_text.see(tk.END)
         else:
             self.buffer_log_text.insert(tk.END, log_msg)
             self.buffer_log_text.see(tk.END)
@@ -9090,7 +9094,7 @@ class DVBT2EncoderGUI:
         
         # Channel Errors
         ttk.Label(errors_frame, text="CHANNEL CRITICAL ERRORS:", font=('Arial', 9, 'bold')).pack(anchor='w', pady=(0, 2))
-        channel_errors_text = tk.Text(errors_frame, wrap=tk.WORD, height=10, font=('Courier', 9))
+        channel_errors_text = tk.Text(errors_frame, wrap=tk.WORD, height=6, font=('Courier', 8))
         channel_errors_text.pack(fill='x', pady=(0, 5))
         
         default_channel_str = ", ".join(self.default_channel_errors)
@@ -9101,7 +9105,7 @@ class DVBT2EncoderGUI:
         
         # Multiplexer Errors
         ttk.Label(errors_frame, text="MULTIPLEXER CRITICAL ERRORS:", font=('Arial', 9, 'bold')).pack(anchor='w', pady=(5, 2))
-        mux_errors_text = tk.Text(errors_frame, wrap=tk.WORD, height=6, font=('Courier', 9))
+        mux_errors_text = tk.Text(errors_frame, wrap=tk.WORD, height=3, font=('Courier', 8))
         mux_errors_text.pack(fill='x', pady=(0, 5))
         
         default_mux_str = ", ".join(self.default_multiplexer_errors)
@@ -9109,7 +9113,7 @@ class DVBT2EncoderGUI:
             mux_errors_text.insert("1.0", f"{default_mux_str}, {self.custom_multiplexer_errors.get()}")
         else:
             mux_errors_text.insert("1.0", default_mux_str)
-        
+                                
         # Buttons for errors
         error_btn_frame = ttk.Frame(errors_frame)
         error_btn_frame.pack(fill='x', pady=5)
@@ -9121,7 +9125,7 @@ class DVBT2EncoderGUI:
             custom_errors = [e for e in all_errors if e not in default_set]
             self.custom_channel_errors.set(", ".join(custom_errors))
             self.save_config()
-            self.log_message("Channel errors dictionary saved", "buffer")
+            self.log_message("Channel errors dictionary saved", "monitor")
         
         def save_mux_errors():
             text = mux_errors_text.get("1.0", tk.END).strip()
@@ -9130,26 +9134,47 @@ class DVBT2EncoderGUI:
             custom_errors = [e for e in all_errors if e not in default_set]
             self.custom_multiplexer_errors.set(", ".join(custom_errors))
             self.save_config()
-            self.log_message("Multiplexer errors dictionary saved", "buffer")
+            self.log_message("Multiplexer errors dictionary saved", "monitor")
         
         def reset_channel_errors():
             channel_errors_text.delete("1.0", tk.END)
             channel_errors_text.insert("1.0", ", ".join(self.default_channel_errors))
             self.custom_channel_errors.set("")
             self.save_config()
-            self.log_message("Channel errors reset to default", "buffer")
+            self.log_message("Channel errors reset to default", "monitor")
         
         def reset_mux_errors():
             mux_errors_text.delete("1.0", tk.END)
             mux_errors_text.insert("1.0", ", ".join(self.default_multiplexer_errors))
             self.custom_multiplexer_errors.set("")
             self.save_config()
-            self.log_message("Multiplexer errors reset to default", "buffer")
+            self.log_message("Multiplexer errors reset to default", "monitor")
         
         ttk.Button(error_btn_frame, text="Save Channel Errors", command=save_channel_errors, width=18).pack(side='left', padx=2)
         ttk.Button(error_btn_frame, text="Reset Channel Errors", command=reset_channel_errors, width=20).pack(side='left', padx=2)
         ttk.Button(error_btn_frame, text="Save Mux Errors", command=save_mux_errors, width=16).pack(side='left', padx=2)
         ttk.Button(error_btn_frame, text="Reset Mux Errors", command=reset_mux_errors, width=16).pack(side='left', padx=2)
+        
+        # ========== MONITOR LOGS ==========
+        log_frame = ttk.LabelFrame(main_frame, text="Monitor Logs", padding="6")
+        log_frame.pack(fill='both', expand=True, pady=(6, 6))
+
+        # Создаем текстовое поле с прокруткой
+        log_text_frame = ttk.Frame(log_frame)
+        log_text_frame.pack(fill='both', expand=True)
+
+        self.monitor_log_text = tk.Text(log_text_frame, wrap=tk.WORD, height=6, font=('Courier', 8))
+        monitor_scrollbar = ttk.Scrollbar(log_text_frame, orient='vertical', command=self.monitor_log_text.yview)
+        self.monitor_log_text.configure(yscrollcommand=monitor_scrollbar.set)
+
+        self.monitor_log_text.pack(side='left', fill='both', expand=True)
+        monitor_scrollbar.pack(side='right', fill='y')
+
+        # Кнопка очистки
+        clear_btn_frame = ttk.Frame(log_frame)
+        clear_btn_frame.pack(fill='x', pady=(5, 0))
+        ttk.Button(clear_btn_frame, text="Clear Monitor Logs", 
+                   command=lambda: self.monitor_log_text.delete(1.0, tk.END), width=20).pack()        
         
         # ========== STATISTICS (full width) ==========
         stats_frame = ttk.LabelFrame(main_frame, text="Live Statistics", padding="6")
@@ -9430,7 +9455,7 @@ class DVBT2EncoderGUI:
             self.obs_start_btn.config(state='disabled')
             self.obs_stop_btn.config(state='normal')
             if not self.obs_process:
-                self.log_message("OBS Studio detected (already running on system)", "buffer")
+                self.log_message("OBS Studio detected (already running on system)", "overlay")
             
         elif not obs_running and self.obs_running:
             # OBS остановлен
@@ -9440,7 +9465,7 @@ class DVBT2EncoderGUI:
             self.obs_start_btn.config(state='normal')
             self.obs_stop_btn.config(state='disabled')
             self.obs_process = None
-            self.log_message("OBS Studio stopped", "buffer")
+            self.log_message("OBS Studio stopped", "overlay")
     
         # Check again after 2 seconds
         self.root.after(2000, self.check_obs_status)     
@@ -9449,11 +9474,11 @@ class DVBT2EncoderGUI:
         """Start OBS Studio"""
         # ⚡ ПРОВЕРКА: Если OBS уже запущен в системе, не пытаемся запустить снова
         if self.obs_running or self.is_obs_running_system():
-            self.log_message("OBS Studio is already running", "buffer")
+            self.log_message("OBS Studio is already running", "overlay")
             return
             
         if not self.obs_path.get():
-            self.log_message("OBS Studio path not set", "buffer")
+            self.log_message("OBS Studio path not set", "overlay")
             return
         
         if self.obs_running or not self.obs_path.get():
@@ -9462,7 +9487,7 @@ class DVBT2EncoderGUI:
         try:
             original_path = self.obs_path.get()
             if not os.path.exists(original_path):
-                self.log_message(f"OBS Studio executable not found: {original_path}", "buffer")
+                self.log_message(f"OBS Studio executable not found: {original_path}", "overlay")
                 return
             
             obs_path = original_path
@@ -9478,20 +9503,20 @@ class DVBT2EncoderGUI:
                         obs_path = shortcut.Targetpath
                         working_dir = shortcut.WorkingDirectory
                         
-                        self.log_message(f"Resolved shortcut to: {obs_path}", "buffer")
+                        self.log_message(f"Resolved shortcut to: {obs_path}", "overlay")
                         if working_dir:
-                            self.log_message(f"Working directory: {working_dir}", "buffer")
+                            self.log_message(f"Working directory: {working_dir}", "overlay")
                             
                     except Exception as e:
-                        self.log_message(f"❌ Error resolving shortcut: {e}", "buffer")
+                        self.log_message(f"❌ Error resolving shortcut: {e}", "overlay")
                         return
                 else:
-                    self.log_message("⚠ win32com module not available, cannot resolve .lnk shortcut", "buffer")
+                    self.log_message("⚠ win32com module not available, cannot resolve .lnk shortcut", "overlay")
                     return
             
             # Check if resolved path exists
             if not os.path.exists(obs_path):
-                self.log_message(f"Resolved OBS Studio executable not found: {obs_path}", "buffer")
+                self.log_message(f"Resolved OBS Studio executable not found: {obs_path}", "overlay")
                 return
             
             # Determine the best working directory
@@ -9509,10 +9534,10 @@ class DVBT2EncoderGUI:
                 parent_obs_data_dir = os.path.join(parent_dir, "data")
                 if os.path.exists(parent_obs_data_dir):
                     working_dir = parent_dir
-                    self.log_message(f"Using parent directory as working directory: {working_dir}", "buffer")
+                    self.log_message(f"Using parent directory as working directory: {working_dir}", "overlay")
             
-            self.log_message(f"Starting OBS Studio: {obs_path}", "buffer")
-            self.log_message(f"Working directory: {working_dir}", "buffer")
+            self.log_message(f"Starting OBS Studio: {obs_path}", "overlay")
+            self.log_message(f"Working directory: {working_dir}", "overlay")
             
             # Set environment variables for OBS Studio
             env = os.environ.copy()
@@ -9530,10 +9555,10 @@ class DVBT2EncoderGUI:
             self.obs_status_label.config(foreground='green')
             self.obs_start_btn.config(state='disabled')
             self.obs_stop_btn.config(state='normal')
-            self.log_message("OBS Studio started successfully", "buffer")
+            self.log_message("OBS Studio started successfully", "overlay")
             
         except Exception as e:
-            self.log_message(f"Error starting OBS Studio: {e}", "buffer")
+            self.log_message(f"Error starting OBS Studio: {e}", "overlay")
     
     def stop_obs(self):
         """Stop OBS Studio"""
@@ -9551,11 +9576,11 @@ class DVBT2EncoderGUI:
                     self.obs_process.wait()
             else:
                 # Если OBS запущен как системный процесс - пытаемся найти и завершить
-                self.log_message("Attempting to stop system OBS Studio process...", "buffer")
+                self.log_message("Attempting to stop system OBS Studio process...", "overlay")
                 self.kill_system_obs()
                 
         except Exception as e:
-            self.log_message(f"Error stopping OBS Studio: {e}", "buffer")
+            self.log_message(f"Error stopping OBS Studio: {e}", "overlay")
         
         self.obs_running = False
         self.obs_status.set("Stopped")
@@ -9563,7 +9588,7 @@ class DVBT2EncoderGUI:
         self.obs_start_btn.config(state='normal')
         self.obs_stop_btn.config(state='disabled')
         self.obs_process = None
-        self.log_message("OBS Studio stopped", "buffer")
+        self.log_message("OBS Studio stopped", "overlay")
         
     def kill_system_obs(self):
         """Kill OBS Studio system processes"""
@@ -9575,16 +9600,16 @@ class DVBT2EncoderGUI:
                     if process_name in ['obs64.exe', 'obs32.exe', 'obs.exe']:
                         pid = process.info['pid']
                         psutil.Process(pid).terminate()
-                        self.log_message(f"Terminated OBS Studio process (PID: {pid})", "buffer")
+                        self.log_message(f"Terminated OBS Studio process (PID: {pid})", "overlay")
                         killed = True
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
             
             if not killed:
-                self.log_message("No OBS Studio processes found to terminate", "buffer")
+                self.log_message("No OBS Studio processes found to terminate", "overlay")
                 
         except Exception as e:
-            self.log_message(f"Error killing system OBS: {e}", "buffer")      
+            self.log_message(f"Error killing system OBS: {e}", "overlay")      
     
     def confirm_frequency(self):
         """Confirm frequency change and send to GNU Radio"""
@@ -9593,7 +9618,7 @@ class DVBT2EncoderGUI:
             
             # ПРОВЕРКА: частота не может быть 0 или отрицательной
             if frequency_mhz <= 0:
-                self.log_message("❌ Error: Frequency must be greater than 0 MHz", "buffer")
+                self.log_message("❌ Error: Frequency must be greater than 0 MHz", "gnuradio")
                 messagebox.showerror("Frequency Error", "Frequency must be greater than 0 MHz!")
                 return
                 
@@ -9601,7 +9626,7 @@ class DVBT2EncoderGUI:
             
             # ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ДИАПАЗОНА
             if frequency_hz < 70000000 or frequency_hz > 6000000000:
-                self.log_message(f"❌ Error: Frequency {frequency_mhz} MHz is outside PlutoSDR range (70-6000 MHz)", "buffer")
+                self.log_message(f"❌ Error: Frequency {frequency_mhz} MHz is outside PlutoSDR range (70-6000 MHz)", "gnuradio")
                 messagebox.showerror("Frequency Error", 
                                    f"Frequency {frequency_mhz} MHz is outside PlutoSDR range!\n"
                                    f"Valid range: 70 MHz - 6000 MHz")
@@ -9614,10 +9639,10 @@ class DVBT2EncoderGUI:
                 
             self.save_config()
             self.update_preset_script()
-            self.log_message(f"✅ Frequency confirmed: {frequency_mhz} MHz", "buffer")
+            self.log_message(f"✅ Frequency confirmed: {frequency_mhz} MHz", "gnuradio")
             
         except ValueError:
-            self.log_message("❌ Invalid frequency value", "buffer")
+            self.log_message("❌ Invalid frequency value", "gnuradio")
             messagebox.showerror("Frequency Error", "Please enter a valid frequency number!")
     
     def find_video_devices(self):
@@ -9634,7 +9659,7 @@ class DVBT2EncoderGUI:
             # Более надежная проверка вывода
             output_text = result.stderr or ""
             if not output_text.strip():
-                self.log_message("No output from FFmpeg when searching for video devices", "buffer")
+                self.log_message("No output from FFmpeg when searching for video devices", "gnuradio")
                 return
                 
             # Parse output for video devices
@@ -9661,14 +9686,14 @@ class DVBT2EncoderGUI:
                 self.video_device_combo['values'] = video_devices
             
             if video_devices:
-                self.log_message(f"Found {len(video_devices)} video devices", "buffer")
+                self.log_message(f"Found {len(video_devices)} video devices", "overlay")
             else:
-                self.log_message("No video devices found", "buffer")
+                self.log_message("No video devices found", "overlay")
                 
         except subprocess.TimeoutExpired:
-            self.log_message("Timeout while searching for video devices", "buffer")
+            self.log_message("Timeout while searching for video devices", "overlay")
         except Exception as e:
-            self.log_message(f"Error finding video devices: {str(e)}", "buffer")
+            self.log_message(f"Error finding video devices: {str(e)}", "overlay")
     
     def find_audio_devices(self):
         """Find available audio input devices using FFmpeg"""
@@ -9684,7 +9709,7 @@ class DVBT2EncoderGUI:
             # Более надежная проверка вывода
             output_text = result.stderr or ""
             if not output_text.strip():
-                self.log_message("No output from FFmpeg when searching for audio devices", "buffer")
+                self.log_message("No output from FFmpeg when searching for audio devices", "overlay")
                 return
                 
             # Parse output for audio devices
@@ -9711,14 +9736,14 @@ class DVBT2EncoderGUI:
                 self.audio_device_combo['values'] = audio_devices
             
             if audio_devices:
-                self.log_message(f"Found {len(audio_devices)} audio devices", "buffer")
+                self.log_message(f"Found {len(audio_devices)} audio devices", "overlay")
             else:
-                self.log_message("No audio devices found", "buffer")
+                self.log_message("No audio devices found", "overlay")
                 
         except subprocess.TimeoutExpired:
-            self.log_message("Timeout while searching for audio devices", "buffer")
+            self.log_message("Timeout while searching for audio devices", "overlay")
         except Exception as e:
-            self.log_message(f"Error finding audio devices: {str(e)}", "buffer")
+            self.log_message(f"Error finding audio devices: {str(e)}", "overlay")
     
     def on_preset_change(self, event=None):
         """Handle modulator preset change"""
@@ -9745,7 +9770,7 @@ class DVBT2EncoderGUI:
             
             # If streaming or modulator is running, restart everything
             if self.is_streaming or self.modulator_running:
-                self.log_message(f"Changing modulator preset to {preset} - restarting all processes", "buffer")
+                self.log_message(f"Changing modulator preset to {preset} - restarting all processes", "overlay")
                 self.stop_all_processes()
                 # Restart after 2 seconds delay
                 self.root.after(2000, self.restart_all_processes)
@@ -9774,7 +9799,7 @@ class DVBT2EncoderGUI:
                     # Рассчитываем новое значение с множителем 5
                     new_max = max(100, min(100000, video_bufsize * 5))
                     self.max_buffer.set(new_max)
-                    self.log_message(f"📊 max_buffer auto-calculated: {new_max} (video_bufsize={video_bufsize} * 5)", "buffer")
+                    self.log_message(f"📊 max_buffer auto-calculated: {new_max} (video_bufsize={video_bufsize} * 5)", "ffmpeg")
                     # Сбрасываем флаг
                     self._should_recalc_max = False
                 except (ValueError, TypeError):
@@ -9787,7 +9812,7 @@ class DVBT2EncoderGUI:
         """Возвращает размер UDP буфера в байтах для FFmpeg команд"""
         mb_value = self.udp_buffer_size.get()
         # Ограничиваем от 0 до 50 МБ
-        mb_value = max(0, min(50, mb_value))
+        mb_value = max(5, min(100, mb_value))
         return int(mb_value * 1_000_000)  # 5M → 5000000
     
     def stop_all_processes(self):
@@ -9822,26 +9847,26 @@ class DVBT2EncoderGUI:
         try:
             frequency_hz = int(self.frequency.get())
             if frequency_hz <= 0 or frequency_hz < 70000000:
-                self.log_message("❌ Error: Invalid frequency. Please set frequency to 70-6000 MHz", "buffer")
+                self.log_message("❌ Error: Invalid frequency. Please set frequency to 70-6000 MHz", "gnuradio")
                 messagebox.showerror("Frequency Error",
                                    "Invalid frequency detected!\n"
                                    "Please set frequency to 70-6000 MHz before starting modulator.")
                 return
         except:
-            self.log_message("❌ Error: Invalid frequency format", "buffer")
+            self.log_message("❌ Error: Invalid frequency format", "gnuradio")
             messagebox.showerror("Frequency Error", "Invalid frequency format!")
             return
                        
         preset = self.modulator_preset.get()
         if preset not in self.modulator_presets:
-            self.log_message(f"Error: Unknown modulator preset {preset}", "buffer")
+            self.log_message(f"Error: Unknown modulator preset {preset}", "gnuradio")
             return
         
         script_file = self.modulator_presets[preset]["script"]
         
         # ПРОВЕРКА ПУТИ К СКРИПТУ
         if not os.path.exists(script_file):
-            self.log_message(f"Error: Modulator script not found: {script_file}", "buffer")
+            self.log_message(f"Error: Modulator script not found: {script_file}", "gnuradio")
             return
 
         # ⭐ ИЗМЕНЕНО: Получаем Python путь ТОЛЬКО из conf.cfg
@@ -9849,7 +9874,7 @@ class DVBT2EncoderGUI:
         
         # Проверяем, что путь существует
         if not python_path:
-            self.log_message("❌ RADIOCONDA_PATH not found in conf.cfg!", "buffer")
+            self.log_message("❌ RADIOCONDA_PATH not found in conf.cfg!", "gnuradio")
             messagebox.showerror("Ошибка", 
                                "Путь к Python GNU Radio не найден в conf.cfg!\n\n"
                                "Убедитесь, что файл conf.cfg существует и содержит строку:\n"
@@ -9857,7 +9882,7 @@ class DVBT2EncoderGUI:
             return
         
         if not os.path.exists(python_path):
-            self.log_message(f"❌ Python not found at: {python_path}", "buffer")
+            self.log_message(f"❌ Python not found at: {python_path}", "gnuradio")
             messagebox.showerror("Ошибка", 
                                f"Python не найден по пути:\n{python_path}\n\n"
                                "Проверьте правильность пути в файле conf.cfg")
@@ -9867,13 +9892,13 @@ class DVBT2EncoderGUI:
             # Запускаем скрипт через Python GNU Radio
             cmd = [python_path, script_file]
             
-            self.log_message(f"Starting RF modulator: {preset}", "buffer")
-            self.log_message(f"Using Python: {python_path}", "buffer")
+            self.log_message(f"Starting RF modulator: {preset}", "gnuradio")
+            self.log_message(f"Using Python: {python_path}", "gnuradio")
             frequency_mhz = int(self.frequency.get()) // 1000000
             
             # Логируем начальные значения из GUI
-            self.log_message(f"GUI Values: Freq={frequency_mhz} MHz, RF Level={self.rf_gain_percent.get()}%", "buffer")
-            self.log_message(f"Will send to GNU Radio: RF={self.convert_rf_gain_to_modulator(self.rf_gain_percent.get())} dB", "buffer")
+            self.log_message(f"GUI Values: Freq={frequency_mhz} MHz, RF Level={self.rf_gain_percent.get()}%", "gnuradio")
+            self.log_message(f"Will send to GNU Radio: RF={self.convert_rf_gain_to_modulator(self.rf_gain_percent.get())} dB", "gnuradio")
             
             radioconda_dir = os.path.dirname(python_path)
 
@@ -9907,15 +9932,15 @@ class DVBT2EncoderGUI:
             # Start monitoring thread
             threading.Thread(target=self.monitor_modulator, daemon=True).start()
             
-            self.log_message(f"RF modulator {preset} started successfully", "buffer")
+            self.log_message(f"RF modulator {preset} started successfully", "gnuradio")
             
             # Запускаем подключение к XML-RPC через 3 секунды после запуска модулятора
             self.root.after(8000, self.connect_to_gnuradio)
             
         except Exception as e:
-            self.log_message(f"Error starting modulator: {e}", "buffer")
+            self.log_message(f"Error starting modulator: {e}", "gnuradio")
             import traceback
-            self.log_message(f"Traceback: {traceback.format_exc()}", "buffer")
+            self.log_message(f"Traceback: {traceback.format_exc()}", "gnuradio")
             self.stop_modulator()
 
     def stop_modulator(self):
@@ -9941,7 +9966,7 @@ class DVBT2EncoderGUI:
         self.bitrate_deviation.set("0.0%")
         
         try:
-            self.log_message("Stopping RF modulator...", "buffer")
+            self.log_message("Stopping RF modulator...", "gnuradio")
             self.modulator_status.set("Stopping")
             
             # Пробуем XML-RPC остановку
@@ -9949,9 +9974,9 @@ class DVBT2EncoderGUI:
                 import xmlrpc.client
                 client = xmlrpc.client.ServerProxy('http://localhost:8001')
                 result = client.stop_transmission()  # или client.stop_modulator()
-                self.log_message(f"XML-RPC: {result}", "buffer")
+                self.log_message(f"XML-RPC: {result}", "gnuradio")
             except:
-                self.log_message("XML-RPC недоступен, используем альтернативные методы", "buffer")
+                self.log_message("XML-RPC недоступен, используем альтернативные методы", "gnuradio")
                             
             # Очистка
             self.modulator_running = False
@@ -9963,10 +9988,10 @@ class DVBT2EncoderGUI:
             self.modulator_start_btn.config(state='normal')
             self.modulator_stop_btn.config(state='disabled')
             
-            self.log_message("RF modulator stopped", "buffer")
+            self.log_message("RF modulator stopped", "gnuradio")
             
         except Exception as e:
-            self.log_message(f"Error in stop_modulator: {e}", "buffer")
+            self.log_message(f"Error in stop_modulator: {e}", "gnuradio")
             # Гарантированная очистка
             try:
                 if self.modulator_process:
@@ -10286,53 +10311,25 @@ class DVBT2EncoderGUI:
                             key, value = line.split('=', 1)
                             key = key.strip()
                             value = value.strip()
-                            
-                            # Сохраняем в соответствующие переменные
-                            # if key == 'RADIOCONDA_PATH':
-                                # # Получаем папку приложения
-                                # app_dir = os.path.dirname(os.path.abspath(__file__))
-                                
-                                # # Если путь относительный, преобразуем
-                                # if value.startswith('.\\') or value.startswith('./'):
-                                    # rel_path = value[2:] if value.startswith('.\\') else value[2:]
-                                    # abs_path = os.path.join(app_dir, rel_path)
-                                # else:
-                                    # abs_path = value
-                                
-                                # self.gnuradio_python_path.set(abs_path)
-                                # print(f"📂 Loaded GNU Radio path: {value} -> {abs_path}")
-                            
-                            # elif key == 'FFMPEG_PATH':
-                                # self.ffmpeg_path = value
-                                # print(f"📂 Loaded FFmpeg path: {value}")
-                            
+                                                        
                             if key == 'OBS_STUDIO_PATH':
                                 self.obs_path.set(value)
                                 print(f"📂 Loaded OBS path: {value}")
                             
-                            # elif key == 'DVB_RATE_PATH':
-                                # self.dvbt2rate_path = value
-                                # print(f"📂 Loaded dvbt2rate path: {value}")
+
                 
-                self.log_message(f"✅ System paths loaded from {self.system_config_file}", "buffer")
-                
-                # # Проверяем, загрузился ли путь
-                # if not self.gnuradio_python_path.get():
-                    # self.log_message("⚠️ RADIOCONDA_PATH not found in conf.cfg", "buffer")
-                    
+                self.log_message(f"✅ System paths loaded from {self.system_config_file}", "overlay")
+                                   
             else:
-                self.log_message(f"⚠️ System config file not found: {self.system_config_file}", "buffer")
-                self.log_message(f"⚠️ Please run setup.bat first", "buffer")
+                self.log_message(f"⚠️ System config file not found: {self.system_config_file}", "overlay")
+                self.log_message(f"⚠️ Please run setup.bat first", "overlay")
                 
                 # Значения по умолчанию
-                # self.gnuradio_python_path.set("")
                 self.obs_path.set("")
-                # self.ffmpeg_path = "ffmpeg.exe"
-                # self.dvbt2rate_path = "dvbt2rate.exe"
                 
         except Exception as e:
             print(f"❌ Error loading system config: {e}")
-            self.log_message(f"❌ Failed to load system paths", "buffer")
+            self.log_message(f"❌ Failed to load system paths", "overlay")
 
     def load_config(self):
         """Load configuration from file"""
@@ -11017,7 +11014,7 @@ class DVBT2EncoderGUI:
                 channel_data['metadata_color'].trace_add('write', lambda *args: self.debounced_save())
                 channel_data['metadata_position'].trace_add('write', lambda *args: self.debounced_save())                
         
-        self.log_message("Multiplex auto-save setup complete", "buffer")            
+        self.log_message("Multiplex auto-save setup complete", "overlay")            
         
     def start_overlay(self):
         """Start the overlay web server"""
@@ -11428,14 +11425,14 @@ class DVBT2EncoderGUI:
             stdout, stderr = process.communicate(timeout=7)
             
             if 'Input #0' in stderr or 'Stream #' in stderr:
-                self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "buffer")
+                self.log_message(f"✅ CH{channel_num} UDP stream OK: {url[:50]}...", "monitor")
                 return True
             else:
-                self.log_message(f"❌ CH{channel_num} UDP stream not responding: {url}", "buffer")
+                self.log_message(f"❌ CH{channel_num} UDP stream not responding: {url}", "monitor")
                 return False
                 
         except Exception as e:
-            self.log_message(f"❌ CH{channel_num} UDP stream error: {str(e)[:100]}", "buffer")
+            self.log_message(f"❌ CH{channel_num} UDP stream error: {str(e)[:100]}", "monitor")
             return False
 
     def check_url_stream(self, channel_num, url):
@@ -11459,14 +11456,14 @@ class DVBT2EncoderGUI:
             stdout, stderr = process.communicate(timeout=10)
             
             if any(x in stderr for x in ['Input #0', 'Stream #', 'Program', 'icy-name', 'Duration:']):
-                self.log_message(f"✅ CH{channel_num} URL stream OK: {url[:50]}...", "buffer")
+                self.log_message(f"✅ CH{channel_num} URL stream OK: {url[:50]}...", "monitor")
                 return True
             else:
-                self.log_message(f"❌ CH{channel_num} URL stream not responding: {url}", "buffer")
+                self.log_message(f"❌ CH{channel_num} URL stream not responding: {url}", "monitor")
                 return False
                 
         except Exception as e:
-            self.log_message(f"❌ CH{channel_num} URL stream error: {str(e)[:100]}", "buffer")
+            self.log_message(f"❌ CH{channel_num} URL stream error: {str(e)[:100]}", "monitor")
             return False  
 
     def monitor_channel_output(self, channel_num, process, channel_data):
@@ -11478,7 +11475,7 @@ class DVBT2EncoderGUI:
         def speed_timeout():
             if channel_num in self.channel_processes and self.is_streaming:
                 if not self.channel_speed_received.get(channel_num, False):
-                    self.log_message(f"CH{channel_num}: ⚠️ No speed data for {self.speed_timeout_seconds.get()} seconds", "buffer")
+                    self.log_message(f"CH{channel_num}: ⚠️ No speed data for {self.speed_timeout_seconds.get()} seconds", "monitor")
                     self.transition_to_failed(channel_num, "no_speed_timeout")
         
         speed_timeout_ms = int(self.speed_timeout_seconds.get() * 1000)
@@ -11538,7 +11535,7 @@ class DVBT2EncoderGUI:
                             break
                     
                     if error_detected:
-                        self.log_message(f"CH{channel_num} ERROR: {detected_error}", "buffer")
+                        self.log_message(f"CH{channel_num} ERROR: {detected_error}", "ffmpeg")
                         self.last_fail_time = time.time()
                         # Переводим канал в состояние FAILED
                         self.transition_to_failed(channel_num, "stream_error")
@@ -11546,12 +11543,12 @@ class DVBT2EncoderGUI:
                                 
         except Exception as e:
             if self.is_streaming:
-                self.log_message(f"CH{channel_num} monitor error: {e}", "buffer")
+                self.log_message(f"CH{channel_num} monitor error: {e}", "monitor")
         
         # Проверяем завершение процесса
         if process.poll() is not None and self.is_streaming:
             return_code = process.poll()
-            self.log_message(f"CH{channel_num}: Process exited with code {return_code}", "buffer")
+            self.log_message(f"CH{channel_num}: Process exited with code {return_code}", "monitor")
             self.last_fail_time = time.time()
             # Переводим канал в состояние FAILED
             self.transition_to_failed(channel_num, f"process_exit_{return_code}")
@@ -11615,8 +11612,8 @@ class DVBT2EncoderGUI:
         # Все ниже порога?
         fail_threshold = self.channel_speed_fail_threshold.get()
         if all(speed < fail_threshold for speed in last_values):
-            self.log_message(f"CH{channel_num}: ⚠️ Speed below {fail_threshold:.3f}x for {check_count} checks", "buffer")
-            self.log_message(f"   Last values: {[f'{s:.3f}x' for s in last_values]}", "buffer")
+            self.log_message(f"CH{channel_num}: ⚠️ Speed below {fail_threshold:.3f}x for {check_count} checks", "monitor")
+            self.log_message(f"   Last values: {[f'{s:.3f}x' for s in last_values]}", "monitor")
             
             # Очищаем историю
             self.channel_speed_history[channel_num].clear()
@@ -11653,9 +11650,9 @@ class DVBT2EncoderGUI:
         all_below_threshold = all(speed < threshold for speed in last_values)
         
         if all_below_threshold:
-            self.log_message(f"⚠️ CRITICAL: Main multiplexer speed below {threshold:.3f}x for {self.speed_restart_count.get()} checks", "buffer")
-            self.log_message(f"   Last values: {[f'{s:.3f}x' for s in last_values]}", "buffer")
-            self.log_message("🔄 Restarting entire streaming system...", "buffer")
+            self.log_message(f"⚠️ CRITICAL: Main multiplexer speed below {threshold:.3f}x for {self.speed_restart_count.get()} checks", "monitor")
+            self.log_message(f"   Last values: {[f'{s:.3f}x' for s in last_values]}", "monitor")
+            self.log_message("🔄 Restarting entire streaming system...", "monitor")
             
             # Устанавливаем cooldown
             self.speed_restart_cooldown = current_time
@@ -11690,11 +11687,11 @@ class DVBT2EncoderGUI:
             process.wait(timeout=1)
             
             if name:
-                self.log_message(f"{name} stopped", "buffer")
+                self.log_message(f"{name} stopped", "overlay")
                 
         except Exception as e:
             if name:
-                self.log_message(f"Error stopping {name}: {str(e)}", "buffer")        
+                self.log_message(f"Error stopping {name}: {str(e)}", "overlay")        
               
     def restart_original_channel(self, channel_num):
         """Restart original channel"""
@@ -11709,7 +11706,7 @@ class DVBT2EncoderGUI:
             capture_method = channel_data['capture_method'].get()
             current_value = channel_data['window_title'].get()
             
-            self.log_message(f"CH{channel_num}: Restarting with window: '{current_value[:50]}...'", "buffer")
+            self.log_message(f"CH{channel_num}: Restarting with window: '{current_value[:50]}...'", "monitor")
             
             if capture_method == 'gdigrab':
                 # Для gdigrab работаем с названиями окон
@@ -11717,27 +11714,27 @@ class DVBT2EncoderGUI:
                 
                 if current_value and current_value in available_titles:
                     # Окно все еще доступно
-                    self.log_message(f"CH{channel_num}: Window still available", "buffer")
+                    self.log_message(f"CH{channel_num}: Window still available", "monitor")
                     pass
                 elif current_value:
                     # Ищем похожее окно
                     similar = self.find_similar_window(current_value, available_titles)
                     if similar:
                         channel_data['window_title'].set(similar)
-                        self.log_message(f"CH{channel_num}: Found similar window for restart: {similar[:50]}...", "buffer")
+                        self.log_message(f"CH{channel_num}: Found similar window for restart: {similar[:50]}...", "monitor")
                     elif available_titles:
                         # Берем первое доступное
                         first_window = available_titles[0]
                         channel_data['window_title'].set(first_window)
                         window_display = first_window[:50]
-                        self.log_message(f"CH{channel_num}: Using first available window for restart: {window_display}...", "buffer")
+                        self.log_message(f"CH{channel_num}: Using first available window for restart: {window_display}...", "monitor")
                     else:
-                        self.log_message(f"CH{channel_num}: No windows available for capture", "buffer")
+                        self.log_message(f"CH{channel_num}: No windows available for capture", "monitor")
                         return False
                 elif available_titles:
                     first_window = available_titles[0]
                     channel_data['window_title'].set(first_window)
-                    self.log_message(f"CH{channel_num}: No previous window, using first available", "buffer")
+                    self.log_message(f"CH{channel_num}: No previous window, using first available", "monitor")
             
             else:  # gfxcapture
                 # Для gfxcapture работаем с именами процессов
@@ -11745,11 +11742,11 @@ class DVBT2EncoderGUI:
                 original_process = channel_data.get('original_process', current_value)
                 
                 if current_value and current_value in available_processes:
-                    self.log_message(f"CH{channel_num}: Process still available", "buffer")
+                    self.log_message(f"CH{channel_num}: Process still available", "monitor")
                     pass
                 elif original_process and original_process in available_processes:
                     # Оригинальный процесс появился!
-                    self.log_message(f"CH{channel_num}: ✅ Original process returned!", "buffer")
+                    self.log_message(f"CH{channel_num}: ✅ Original process returned!", "monitor")
                     channel_data['window_title'].set(original_process)
                     if 'using_temp_process' in channel_data:
                         del channel_data['using_temp_process']
@@ -11758,12 +11755,12 @@ class DVBT2EncoderGUI:
                     channel_data['window_title'].set(first_process)
                     channel_data['using_temp_process'] = True
                     process_display = first_process[:50]
-                    self.log_message(f"CH{channel_num}: Using first available process for restart: {process_display}...", "buffer")
+                    self.log_message(f"CH{channel_num}: Using first available process for restart: {process_display}...", "monitor")
                 else:
-                    self.log_message(f"CH{channel_num}: No processes available for capture", "buffer")
+                    self.log_message(f"CH{channel_num}: No processes available for capture", "monitor")
                     return False
         
-        self.log_message(f"CH{channel_num}: Restarting original stream...", "buffer")        
+        self.log_message(f"CH{channel_num}: Restarting original stream...", "monitor")        
         
         # Запускаем оригинальный канал
         output_port = self.base_multicast_port + channel_num - 1
@@ -11808,15 +11805,15 @@ class DVBT2EncoderGUI:
                     del self.channel_speed_received[channel_num]            
                 # Сбрасываем время инициализации для этого канала
                 self.channel_initialized[channel_num] = time.time()
-                self.log_message(f"CH{channel_num}: ⏱️ Initialization timer reset", "buffer")            
+                self.log_message(f"CH{channel_num}: ⏱️ Initialization timer reset", "monitor")            
                 return_code = process.poll()
-                self.log_message(f"CH{channel_num}: ⚠️ Process died immediately, code {return_code}", "buffer")
+                self.log_message(f"CH{channel_num}: ⚠️ Process died immediately, code {return_code}", "monitor")
                 
                 # Получаем вывод для диагностики
                 try:
                     stdout, _ = process.communicate(timeout=1)
                     if stdout:
-                        self.log_message(f"CH{channel_num}: Process output: {stdout[:500]}", "buffer")
+                        self.log_message(f"CH{channel_num}: Process output: {stdout[:500]}", "monitor")
                 except:
                     pass
                 
@@ -11832,11 +11829,11 @@ class DVBT2EncoderGUI:
             }
             
             self.root.after(5000, self.update_radio_metadata_new)
-            self.log_message(f"CH{channel_num}: ✅ Original stream restarted (PID: {process.pid})", "buffer")
+            self.log_message(f"CH{channel_num}: ✅ Original stream restarted (PID: {process.pid})", "monitor")
             return True
             
         except Exception as e:
-            self.log_message(f"CH{channel_num}: ❌ Failed to restart: {e}", "buffer")
+            self.log_message(f"CH{channel_num}: ❌ Failed to restart: {e}", "monitor")
             return False
 
     def stop_channel_process(self, channel_num):
@@ -11882,10 +11879,10 @@ class DVBT2EncoderGUI:
     def start_state_monitor(self):
         """Запуск единого монитора состояния"""
         if hasattr(self, '_state_monitor_running') and self._state_monitor_running:
-            self.log_message("⚠️ State monitor already running, skipping", "buffer")
+            self.log_message("⚠️ State monitor already running, skipping", "monitor")
             return
         
-        self.log_message("🚀 Starting state monitor", "buffer")
+        self.log_message("🚀 Starting state monitor", "monitor")
         self._state_monitor_running = True
         self.state_monitor_loop()
 
@@ -11896,19 +11893,19 @@ class DVBT2EncoderGUI:
             self._state_monitor_running = False
             return
 
-            self.log_message(f"📊 Current channel_states: {self.channel_states}", "buffer")
+            self.log_message(f"📊 Current channel_states: {self.channel_states}", "monitor")
         try:
             # 1. Проверка живых процессов
             self.check_active_processes()
                             
         except Exception as e:
-            self.log_message(f"State monitor error: {e}", "buffer")
+            self.log_message(f"State monitor error: {e}", "monitor")
             import traceback
-            self.log_message(traceback.format_exc(), "buffer")
+            self.log_message(traceback.format_exc(), "monitor")
         
         # Следующий вызов через 0.5 секунд
         if self.is_streaming:
-            self.root.after(500, self.state_monitor_loop)
+            self.root.after(1000, self.state_monitor_loop)
             
     def check_active_processes(self):
         """Проверка, что все ACTIVE каналы имеют живой процесс"""
@@ -11924,31 +11921,31 @@ class DVBT2EncoderGUI:
             process = process_info.get('process')
             if not process or process.poll() is not None:
                 # Процесс умер, но мы не получили ошибку!
-                self.log_message(f"CH{ch_num}: ⚠️ Process died silently", "buffer")
+                self.log_message(f"CH{ch_num}: ⚠️ Process died silently", "monitor")
                 self.transition_to_failed(ch_num, "silent_death")            
             
     def transition_to_failed(self, channel_num, reason=""):
         """Перевод канала в состояние FAILED"""
-        self.log_message(f"🔥 TRANSITION_TO_FAILED: CH{channel_num}, reason={reason}", "buffer")
-        self.log_message(f"   BEFORE: channel_states[{channel_num}] = {self.channel_states.get(channel_num)}", "buffer")
+        self.log_message(f"🔥 TRANSITION_TO_FAILED: CH{channel_num}, reason={reason}", "monitor")
+        self.log_message(f"   BEFORE: channel_states[{channel_num}] = {self.channel_states.get(channel_num)}", "monitor")
 
         # Если канал уже в FAILED, не увеличиваем счетчик повторно
         if self.channel_states.get(channel_num) == self.CHANNEL_STATE_FAILED:
-            self.log_message(f"CH{channel_num}: Already in FAILED state, ignoring second trigger", "buffer")
+            self.log_message(f"CH{channel_num}: Already in FAILED state, ignoring second trigger", "monitor")
             return
         
         was_active = self.channel_states.get(channel_num) == self.CHANNEL_STATE_ACTIVE
         
         # НЕ запускаем emergency, если стриминг уже остановлен
         if not self.is_streaming and reason != "startup_failed":
-            self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason}) - streaming stopped, no emergency", "buffer")
+            self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason}) - streaming stopped, no emergency", "monitor")
             self.stop_channel_process(channel_num)
             return
         
         if self.channel_states.get(channel_num) == self.CHANNEL_STATE_FAILED:
             return
         
-        self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason})", "buffer")
+        self.log_message(f"CH{channel_num}: 🔴 FAILED ({reason})", "monitor")
         
         # 1. Останавливаем процесс канала
         self.stop_channel_process(channel_num)
@@ -11957,13 +11954,13 @@ class DVBT2EncoderGUI:
         if channel_num in self.channel_processes:
             old_info = self.channel_processes.get(channel_num)
             if old_info and old_info.get('is_radio'):
-                self.log_message(f"CH{channel_num}: ⏹️ Stopping metadata updates", "buffer")
+                self.log_message(f"CH{channel_num}: ⏹️ Stopping metadata updates", "monitor")
                 if hasattr(self, f'last_metadata_ch{channel_num}'):
                     delattr(self, f'last_metadata_ch{channel_num}')
         
         # 2. Обновляем состояние
         self.channel_states[channel_num] = self.CHANNEL_STATE_FAILED
-        self.log_message(f"   AFTER: channel_states[{channel_num}] = {self.CHANNEL_STATE_FAILED}", "buffer")
+        self.log_message(f"   AFTER: channel_states[{channel_num}] = {self.CHANNEL_STATE_FAILED}", "monitor")
         self.channel_fail_time[channel_num] = time.time()
         
         # НОВАЯ ЛОГИКА: увеличиваем счетчик ТОЛЬКО если канал был ACTIVE
@@ -11971,7 +11968,7 @@ class DVBT2EncoderGUI:
             # Увеличиваем счетчик, но с верхним лимитом
             current_count = self.channel_fail_count.get(channel_num, 0)
             self.channel_fail_count[channel_num] = min(current_count + 1, 10)
-            self.log_message(f"CH{channel_num}: ⚠️ Fail count increased to {current_count + 1}", "buffer")
+            self.log_message(f"CH{channel_num}: ⚠️ Fail count increased to {current_count + 1}", "monitor")
             
             # Устанавливаем long cooldown если нужно (используем переменную из настроек)
             if current_count + 1 >= 3:
@@ -11989,7 +11986,7 @@ class DVBT2EncoderGUI:
                     self.start_individual_emergency(channel_num)
                     self.schedule_channel_check(channel_num)
                 else:
-                    self.log_message(f"CH{channel_num}: ⏭️ No emergency for {source_type}", "buffer")
+                    self.log_message(f"CH{channel_num}: ⏭️ No emergency for {source_type}", "monitor")
         
         # При переходе в FAILED очищаем время инициализации
         if channel_num in self.channel_initialized:
@@ -12008,7 +12005,7 @@ class DVBT2EncoderGUI:
         """Сбрасывает флаг long cooldown для канала"""
         if channel_num in self.channel_long_cooldown:
             self.channel_long_cooldown[channel_num] = False
-            self.log_message(f"CH{channel_num}: Long cooldown expired", "buffer")
+            self.log_message(f"CH{channel_num}: Long cooldown expired", "monitor")
                 
     def schedule_channel_check(self, channel_num):
         """Запланировать проверку конкретного канала"""
@@ -12029,18 +12026,18 @@ class DVBT2EncoderGUI:
         if source_type == "grab_window" and channel_num in self.window_search_state:
             attempts = self.window_search_state[channel_num]['attempts']
             interval = self.get_window_search_interval(attempts) * 1000
-            self.log_message(f"CH{channel_num}: ⏱️ Window search interval: {interval/1000}s (attempt {attempts})", "buffer")
+            self.log_message(f"CH{channel_num}: ⏱️ Window search interval: {interval/1000}s (attempt {attempts})", "monitor")
         else:
             # Проверяем cooldown
             if hasattr(self, 'channel_long_cooldown') and self.channel_long_cooldown.get(channel_num, False):
                 interval = self.channel_long_check_cooldown.get() * 1000
-                self.log_message(f"CH{channel_num}: ⏱️ COOLDOWN: {interval/1000}s interval", "buffer")
+                self.log_message(f"CH{channel_num}: ⏱️ COOLDOWN: {interval/1000}s interval", "monitor")
                 self.channel_long_cooldown[channel_num] = False
             elif channel_num in self.channel_long_results:
                 interval = self.channel_check_interval_normal.get() * 1000
             elif fail_count >= 3:
                 interval = self.channel_check_interval_fail3.get() * 1000
-                self.log_message(f"CH{channel_num}: ⏱️ LONG CHECK COOLDOWN: {interval/1000}s interval", "buffer")
+                self.log_message(f"CH{channel_num}: ⏱️ LONG CHECK COOLDOWN: {interval/1000}s interval", "monitor")
             else:
                 interval = self.channel_check_interval_normal.get() * 1000
         
@@ -12084,9 +12081,9 @@ class DVBT2EncoderGUI:
             if 'original_window_title' not in channel_data:
                 channel_data['original_window_title'] = current_value
             
-            self.log_message(f"CH{channel_num}: Checking grab_window recovery. Original: '{original_title[:50]}...'", "buffer")
-            self.log_message(f"CH{channel_num}: Current: '{current_value[:50]}...'", "buffer")
-            self.log_message(f"CH{channel_num}: Available windows: {len(windows_data)}", "buffer")
+            self.log_message(f"CH{channel_num}: Checking grab_window recovery. Original: '{original_title[:50]}...'", "monitor")
+            self.log_message(f"CH{channel_num}: Current: '{current_value[:50]}...'", "monitor")
+            self.log_message(f"CH{channel_num}: Available windows: {len(windows_data)}", "monitor")
             
             # Состояние поиска для этого канала
             if channel_num not in self.window_search_state:
@@ -12104,7 +12101,7 @@ class DVBT2EncoderGUI:
                 
                 # 1. Пытаемся найти оригинальное окно
                 if original_title and original_title in available_titles:
-                    self.log_message(f"CH{channel_num}: ✅ Original window found!", "buffer")
+                    self.log_message(f"CH{channel_num}: ✅ Original window found!", "monitor")
                     channel_data['window_title'].set(original_title)
                     # Оригинал найден - поиск завершен
                     if 'using_temp_window' in channel_data:
@@ -12116,7 +12113,7 @@ class DVBT2EncoderGUI:
                 else:
                     similar = self.find_similar_window(original_title, available_titles) if original_title else None
                     if similar:
-                        self.log_message(f"CH{channel_num}: 🔍 Found similar window: '{similar[:50]}...'", "buffer")
+                        self.log_message(f"CH{channel_num}: 🔍 Found similar window: '{similar[:50]}...'", "monitor")
                         channel_data['window_title'].set(similar)
                         channel_data['using_temp_window'] = True
                         # НЕ удаляем window_search_state - продолжаем поиск оригинала
@@ -12125,11 +12122,11 @@ class DVBT2EncoderGUI:
                     # 3. Если нет похожего, увеличиваем счетчик
                     else:
                         search_state['attempts'] += 1
-                        self.log_message(f"CH{channel_num}: ⏳ No suitable window found (attempt {search_state['attempts']})", "buffer")
+                        self.log_message(f"CH{channel_num}: ⏳ No suitable window found (attempt {search_state['attempts']})", "monitor")
                         
                         # Берем первое доступное окно, если есть
                         if available_titles:
-                            self.log_message(f"CH{channel_num}: Using first available window as temporary", "buffer")
+                            self.log_message(f"CH{channel_num}: Using first available window as temporary", "monitor")
                             channel_data['window_title'].set(available_titles[0])
                             channel_data['using_temp_window'] = True
                             # НЕ удаляем window_search_state
@@ -12146,11 +12143,11 @@ class DVBT2EncoderGUI:
                 # Сохраняем оригинальный процесс при первом запуске
                 if 'original_process' not in channel_data:
                     channel_data['original_process'] = original_process
-                    self.log_message(f"CH{channel_num}: Original process saved: {original_process}", "buffer")
+                    self.log_message(f"CH{channel_num}: Original process saved: {original_process}", "monitor")
                 
                 # 1. Пытаемся найти оригинальный процесс
                 if original_process and original_process in available_processes:
-                    self.log_message(f"CH{channel_num}: ✅ Original process found!", "buffer")
+                    self.log_message(f"CH{channel_num}: ✅ Original process found!", "monitor")
                     channel_data['window_title'].set(original_process)
                     # Оригинал найден - сбрасываем флаги
                     if 'using_temp_process' in channel_data:
@@ -12162,7 +12159,7 @@ class DVBT2EncoderGUI:
                 # 2. Если нет оригинального, берем первый доступный
                 elif available_processes:
                     search_state['attempts'] += 1
-                    self.log_message(f"CH{channel_num}: ⏳ Original process not found, using first available (attempt {search_state['attempts']})", "buffer")
+                    self.log_message(f"CH{channel_num}: ⏳ Original process not found, using first available (attempt {search_state['attempts']})", "monitor")
                     
                     # Устанавливаем временный процесс
                     temp_process = available_processes[0]
@@ -12174,7 +12171,7 @@ class DVBT2EncoderGUI:
                     
                 else:
                     search_state['attempts'] += 1
-                    self.log_message(f"CH{channel_num}: ⏳ No processes found (attempt {search_state['attempts']})", "buffer")
+                    self.log_message(f"CH{channel_num}: ⏳ No processes found (attempt {search_state['attempts']})", "monitor")
                     is_alive = False
             
             url = current_value or "no window"
@@ -12201,16 +12198,16 @@ class DVBT2EncoderGUI:
                 self.channel_long_results[channel_num] = []
             
             self.channel_long_results[channel_num].append(is_alive)
-            self.log_message(f"CH{channel_num}: 📊 Long check {len(self.channel_long_results[channel_num])}/{long_check_count}: {'✅' if is_alive else '❌'}", "buffer")
+            self.log_message(f"CH{channel_num}: 📊 Long check {len(self.channel_long_results[channel_num])}/{long_check_count}: {'✅' if is_alive else '❌'}", "monitor")
             
             if len(self.channel_long_results[channel_num]) >= long_check_count:
                 if all(self.channel_long_results[channel_num]):
-                    self.log_message(f"CH{channel_num}: ✅ All {long_check_count} checks passed, restoring", "buffer")
+                    self.log_message(f"CH{channel_num}: ✅ All {long_check_count} checks passed, restoring", "monitor")
                     del self.channel_long_results[channel_num]
                     self.restore_channel(channel_num)
                 else:
                     fail_count = sum(1 for r in self.channel_long_results[channel_num] if not r)
-                    self.log_message(f"CH{channel_num}: ⚠️ {fail_count} checks failed, waiting {self.channel_long_check_cooldown.get()}s", "buffer")
+                    self.log_message(f"CH{channel_num}: ⚠️ {fail_count} checks failed, waiting {self.channel_long_check_cooldown.get()}s", "monitor")
                     del self.channel_long_results[channel_num]
                     self.schedule_channel_check(channel_num)
             else:
@@ -12225,10 +12222,10 @@ class DVBT2EncoderGUI:
             self.channel_recovery_count[channel_num] = count
             
             if count >= recovery_check_count:
-                self.log_message(f"CH{channel_num}: ✅ Stream recovered ({count}/{recovery_check_count})", "buffer")
+                self.log_message(f"CH{channel_num}: ✅ Stream recovered ({count}/{recovery_check_count})", "monitor")
                 self.restore_channel(channel_num)
             else:
-                self.log_message(f"CH{channel_num}: 🟡 Need one more confirmation ({count}/{recovery_check_count})", "buffer")
+                self.log_message(f"CH{channel_num}: 🟡 Need one more confirmation ({count}/{recovery_check_count})", "monitor")
                 self.schedule_channel_check(channel_num)
         else:
             self.channel_recovery_count[channel_num] = 0
@@ -12236,7 +12233,7 @@ class DVBT2EncoderGUI:
             if source_type == "grab_window" and channel_num in self.window_search_state:
                 attempts = self.window_search_state[channel_num]['attempts']
                 interval = self.get_window_search_interval(attempts)
-                self.log_message(f"CH{channel_num}: ⏱️ Next check in {interval}s (attempt {attempts})", "buffer")
+                self.log_message(f"CH{channel_num}: ⏱️ Next check in {interval}s (attempt {attempts})", "monitor")
                 self.root.after(interval * 1000, lambda: self.check_single_channel(channel_num))
             else:
                 self.schedule_channel_check(channel_num)
@@ -12251,7 +12248,7 @@ class DVBT2EncoderGUI:
         
         emergency_file = self.emergency_file_path.get()
         if not emergency_file or not os.path.exists(emergency_file):
-            self.log_message(f"CH{channel_num}: ❌ No emergency file", "buffer")
+            self.log_message(f"CH{channel_num}: ❌ No emergency file", "monitor")
             return
         
         ffmpeg_path = self.ffmpeg_path
@@ -12286,10 +12283,14 @@ class DVBT2EncoderGUI:
         # Метаданные
         cmd += f'-metadata service_provider="EMERGENCY" '
         cmd += f'-metadata service_name="Emergency CH{channel_num}" '
-        cmd += f'-f mpegts '
+        cmd += f'-f mpegts -flush_packet 0'
+        cmd += f'-mpegts_pmt_start_pid 4096 -mpegts_flags resend_headers -mpegts_start_pid 256 -mpegts_flags system_b '
+        cmd += f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 -pcr_period 40 -pat_period 0.4 -sdt_period 0.5 '        
         
         buffer_bytes = self.get_udp_buffer_bytes()
-        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1"'
+        fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+        burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&burst_bits={burst_bits_val}&overrun_nonfatal=1"'
         
         try:
             process = subprocess.Popen(
@@ -12310,10 +12311,10 @@ class DVBT2EncoderGUI:
             time.sleep(1)
             
             self.channel_individual_emergency[channel_num] = process
-            self.log_message(f"CH{channel_num}: 🟡 Individual emergency started (PID: {process.pid})", "buffer")
+            self.log_message(f"CH{channel_num}: 🟡 Individual emergency started (PID: {process.pid})", "monitor")
             
         except Exception as e:
-            self.log_message(f"CH{channel_num}: ❌ Failed to start emergency: {e}", "buffer")
+            self.log_message(f"CH{channel_num}: ❌ Failed to start emergency: {e}", "monitor")
 
     def monitor_emergency_output(self, channel_num, process):
         """Мониторинг вывода emergency процесса с парсингом статистики"""
@@ -12337,7 +12338,7 @@ class DVBT2EncoderGUI:
                     
                     # ⭐ Существующий код логирования ошибок (НЕ ТРОГАЕМ)
                     if any(err in line.lower() for err in ['error', 'fail']):
-                        self.log_message(f"Emergency CH{channel_num}: {line.strip()[:200]}", "buffer")
+                        self.log_message(f"Emergency CH{channel_num}: {line.strip()[:200]}", "monitor")
         except:
             pass  
 
@@ -12366,13 +12367,13 @@ class DVBT2EncoderGUI:
         if capture_method == 'gfxcapture':
             available = [f"{w['process_name']}.exe" for w in windows_data]
             if original in available:
-                self.log_message(f"CH{channel_num}: ✅ Original process returned! Restarting...", "buffer")
+                self.log_message(f"CH{channel_num}: ✅ Original process returned! Restarting...", "monitor")
                 # Принудительно перезапускаем канал с оригиналом
                 self.force_restart_with_original(channel_num, original)
         else:  # gdigrab
             available = [w['window_title'] for w in windows_data]
             if original in available:
-                self.log_message(f"CH{channel_num}: ✅ Original window returned! Restarting...", "buffer")
+                self.log_message(f"CH{channel_num}: ✅ Original window returned! Restarting...", "monitor")
                 self.force_restart_with_original(channel_num, original)
         
         # Планируем следующую проверку
@@ -12409,11 +12410,11 @@ class DVBT2EncoderGUI:
             }
             threading.Thread(target=self.monitor_channel_output,
                             args=(channel_num, process, channel_data), daemon=True).start()
-            self.log_message(f"CH{channel_num}: ✅ Restarted with original window", "buffer")        
+            self.log_message(f"CH{channel_num}: ✅ Restarted with original window", "monitor")        
                                                                                          
     def restore_channel(self, channel_num):
         """Восстановление канала - переключение с заставки на оригинал"""
-        self.log_message(f"CH{channel_num}: 🔄 Restoring channel", "buffer")
+        self.log_message(f"CH{channel_num}: 🔄 Restoring channel", "monitor")
         
         # ПОЛУЧАЕМ ДАННЫЕ КАНАЛА
         channel_data = self.multiplex_channels.get(channel_num)
@@ -12422,7 +12423,7 @@ class DVBT2EncoderGUI:
         if not (channel_data and channel_data.get('using_temp_process')):
             if channel_num in self.window_search_state:
                 del self.window_search_state[channel_num]
-                self.log_message(f"CH{channel_num}: ✅ Window search state cleared", "buffer")
+                self.log_message(f"CH{channel_num}: ✅ Window search state cleared", "monitor")
         
         # Сбрасываем статистику (будет обновлена новым процессом)
         if channel_num in self.channel_speed:
@@ -12435,9 +12436,9 @@ class DVBT2EncoderGUI:
             try:
                 self.root.after_cancel(self.channel_check_timers[channel_num])
                 del self.channel_check_timers[channel_num]
-                self.log_message(f"CH{channel_num}: ✅ Check timer cancelled", "buffer")
+                self.log_message(f"CH{channel_num}: ✅ Check timer cancelled", "monitor")
             except Exception as e:
-                self.log_message(f"CH{channel_num}: ⚠️ Timer cancel error: {e}", "buffer")
+                self.log_message(f"CH{channel_num}: ⚠️ Timer cancel error: {e}", "monitor")
         
         # 2. Очищаем счетчик восстановления
         if channel_num in self.channel_recovery_count:
@@ -12449,11 +12450,11 @@ class DVBT2EncoderGUI:
             if process and process.poll() is None:
                 self.kill_process_fast(process, f"CH{channel_num} emergency")
             del self.channel_individual_emergency[channel_num]
-            self.log_message(f"CH{channel_num}: ✅ Emergency stopped", "buffer")
+            self.log_message(f"CH{channel_num}: ✅ Emergency stopped", "monitor")
         
         # 4. Возобновляем метаданные для радио
         if channel_data and channel_data.get('is_radio'):
-            self.log_message(f"CH{channel_num}: ▶️ Resuming metadata updates", "buffer")
+            self.log_message(f"CH{channel_num}: ▶️ Resuming metadata updates", "monitor")
             self.root.after(10000, lambda ch=channel_num: self.update_radio_metadata_new())
         
         # Если используем временный процесс, продолжаем поиск оригинального
@@ -12464,7 +12465,7 @@ class DVBT2EncoderGUI:
         if self.restart_original_channel(channel_num):
             # Успешно запустили - обновляем состояние
             self.channel_states[channel_num] = self.CHANNEL_STATE_ACTIVE
-            self.log_message(f"CH{channel_num}: ✅ Restored to ACTIVE", "buffer")
+            self.log_message(f"CH{channel_num}: ✅ Restored to ACTIVE", "monitor")
             self.channel_initialized[channel_num] = time.time()
             # Очищаем временные данные
             if channel_num in self.channel_fail_time:
@@ -12475,7 +12476,7 @@ class DVBT2EncoderGUI:
         
         else:
             # Не удалось запустить - возвращаем в FAILED и ПРИНУДИТЕЛЬНО запускаем заставку
-            self.log_message(f"CH{channel_num}: ⚠️ Restore failed, forcing emergency", "buffer")
+            self.log_message(f"CH{channel_num}: ⚠️ Restore failed, forcing emergency", "monitor")
             self.channel_states[channel_num] = self.CHANNEL_STATE_FAILED
             self.start_individual_emergency(channel_num)
             self.schedule_channel_check(channel_num)  
@@ -12486,7 +12487,7 @@ class DVBT2EncoderGUI:
             return
         
         try:
-            self.log_message("=== Starting multi-process streaming ===", "buffer")            
+            self.log_message("=== Starting multi-process streaming ===", "overlay")            
 
             self.encoder_speed.set("---")
             self.encoder_bitrate.set("---")
@@ -12514,33 +12515,15 @@ class DVBT2EncoderGUI:
             for ch_num, channel_data in self.multiplex_channels.items():
                 if not channel_data['enabled'].get():
                     continue
-                
                 # ⚠️ ОПРЕДЕЛЯЕМ source_type ЗДЕСЬ
                 source_type = channel_data['source_type'].get()
-                
-                # # ✅ ПРОВЕРЯЕМ URL/UDP ПЕРЕД ЗАПУСКОМ
-                # if source_type in ["URL_Input", "UDP_MPTS"]:
-                    # if source_type == "URL_Input":
-                        # url = channel_data['url_input'].get().strip()
-                        # if url and not self.check_url_stream(ch_num, url):
-                            # self.log_message(f"CH{ch_num}: ⚠️ Stream not available at startup", "buffer")
-                            # self.transition_to_failed(ch_num, "startup_failed")
-                            # continue
-                    # else:  # UDP_MPTS
-                        # url = channel_data['udp_url'].get().strip()
-                        # if url and not self.check_udp_stream(ch_num, url):
-                            # self.log_message(f"CH{ch_num}: ⚠️ UDP stream not available at startup", "buffer")
-                            # self.transition_to_failed(ch_num, "startup_failed")
-                            # continue
-                
                 output_port = self.base_multicast_port + ch_num - 1
                 
-                # if channel_data['source_type'].get() == "URL_Input" and channel_data['is_radio'].get():
                 if (source_type == "URL_Input" and   # ← ИСПОЛЬЗУЕМ source_type
                     channel_data['is_radio'].get()):
                     channel_data['metadata_enabled_at_start'] = channel_data['show_metadata'].get()
                     channel_data['time_enabled_at_start'] = channel_data['radio_show_time'].get()
-                    self.log_message(f"CH{ch_num}: metadata_start={channel_data['metadata_enabled_at_start']}, time_start={channel_data['time_enabled_at_start']}", "buffer")                
+                    self.log_message(f"CH{ch_num}: metadata_start={channel_data['metadata_enabled_at_start']}, time_start={channel_data['time_enabled_at_start']}", "monitor")                
                     
                     cmd = self.build_radio_channel_command(ch_num, channel_data, output_port)
                     use_stdin = True
@@ -12578,7 +12561,7 @@ class DVBT2EncoderGUI:
                     if use_stdin:
                         channel_data['ffmpeg_stdin'] = process.stdin
                         channel_data['ffmpeg_pid'] = process.pid
-                        self.log_message(f"DEBUG: CH{ch_num} - stdin saved, PID: {process.pid}", "buffer")
+                        self.log_message(f"DEBUG: CH{ch_num} - stdin saved, PID: {process.pid}", "monitor")
                     
                     # Start monitoring
                     threading.Thread(
@@ -12587,14 +12570,14 @@ class DVBT2EncoderGUI:
                         daemon=True
                     ).start()
                     
-                    self.log_message(f"CH{ch_num}: Process started on port {output_port} (PID: {process.pid})", "buffer")
+                    self.log_message(f"CH{ch_num}: Process started on port {output_port} (PID: {process.pid})", "monitor")
                     channels_started += 1
                     
                 except Exception as e:
-                    self.log_message(f"CH{ch_num}: Failed to start: {e}", "buffer")
+                    self.log_message(f"CH{ch_num}: Failed to start: {e}", "monitor")
             
             if channels_started == 0:
-                self.log_message("No channels started", "buffer")
+                self.log_message("No channels started", "monitor")
                 return
                 
             # Инициализация состояний
@@ -12608,7 +12591,7 @@ class DVBT2EncoderGUI:
             # 4. Wait and start main multiplexer
             # time.sleep(1)
             self.start_main_multiplexer()                        
-            self.log_message(f"=== Multi-process streaming started ({channels_started} channels) ===", "buffer")
+            self.log_message(f"=== Multi-process streaming started ({channels_started} channels) ===", "monitor")
             self.is_streaming = True
             
             # Запуск монитора
@@ -12629,14 +12612,14 @@ class DVBT2EncoderGUI:
                     self.init_channels_stats_ui()            
                     
         except Exception as e:
-            self.log_message(f"Error starting streaming: {e}", "buffer")
+            self.log_message(f"Error starting streaming: {e}", "monitor")
             import traceback
-            self.log_message(f"Traceback: {traceback.format_exc()}", "buffer")
+            self.log_message(f"Traceback: {traceback.format_exc()}", "monitor")
             self.stop_streaming()
                           
     def stop_streaming(self):
         """Stop multi-process streaming"""
-        self.log_message("Stopping multi-process streaming...", "buffer")
+        self.log_message("Stopping multi-process streaming...", "monitor")
            
         # 1. Stop all processes
         self.is_streaming = False
@@ -12686,7 +12669,7 @@ class DVBT2EncoderGUI:
             if 'ffmpeg_pid' in channel_data:
                 channel_data['ffmpeg_pid'] = None
         
-        self.log_message("Multi-process streaming stopped", "buffer")
+        self.log_message("Multi-process streaming stopped", "overlay")
         
         # Очищаем сохраненные метаданные
         for i in range(1, 5):
@@ -13245,7 +13228,7 @@ class DVBT2EncoderGUI:
         
         # Проверяем, загружены ли каналы
         if not hasattr(self, 'multiplex_channels') or not self.multiplex_channels:
-            self.log_message("⏳ Channels not loaded yet, postponing UI init", "buffer")
+            self.log_message("⏳ Channels not loaded yet, postponing UI init", "overlay")
             self.root.after(500, self.init_channels_stats_ui)
             return
         
@@ -13274,7 +13257,7 @@ class DVBT2EncoderGUI:
                      font=('Arial', 8, 'italic')).pack(anchor='w')
             return
         
-        self.log_message(f"Creating UI for {len(active_channels)} active channels", "buffer")
+        self.log_message(f"Creating UI for {len(active_channels)} active channels", "overlay")
         
         # Создаем столбцы по 2 канала
         columns = []
@@ -13331,14 +13314,14 @@ class DVBT2EncoderGUI:
                 ttk.Label(row_frame, text="k", font=('Arial', 6)).pack(side='left')
                 self.channel_bitrate_labels[real_num] = bitrate_label
         
-        self.log_message(f"UI created successfully for {len(active_channels)} channels", "buffer")
+        self.log_message(f"UI created successfully for {len(active_channels)} channels", "overlay")
                         
     def restart_streaming_system(self):
         """Полный перезапуск системы стриминга"""
         if not self.is_streaming:
             return
         
-        self.log_message("🔄 Executing full system restart...", "buffer")
+        self.log_message("🔄 Executing full system restart...", "monitor")
         
         # Сохраняем состояние
         was_streaming = self.is_streaming
@@ -13354,7 +13337,7 @@ class DVBT2EncoderGUI:
         if was_streaming:
             self.start_streaming()
                 
-        self.log_message("✅ System restart completed", "buffer") 
+        self.log_message("✅ System restart completed", "monitor") 
         
     def get_clean_encoder_command(self):
         """Генерирует команду кодирования из текущих настроек GUI, исключая параметры битрейта"""
@@ -13496,7 +13479,7 @@ class DVBT2EncoderGUI:
                         if 'command' in data:
                             self.encoder_preset_commands[preset_name] = data['command']
                 except Exception as e:
-                    self.log_message(f"Error loading preset {preset_name}: {e}", "buffer")
+                    self.log_message(f"Error loading preset {preset_name}: {e}", "overlay")
         
         # Обновляем выпадающий список
         if hasattr(self, 'encoder_preset_combo') and self.encoder_preset_combo:
@@ -13537,7 +13520,7 @@ class DVBT2EncoderGUI:
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
-            self.log_message(f"Preset '{preset_name}' saved successfully", "buffer")
+            self.log_message(f"Preset '{preset_name}' saved successfully", "overlay")
             
             # Обновляем список пресетов
             self.load_encoder_presets()
@@ -13550,7 +13533,7 @@ class DVBT2EncoderGUI:
             messagebox.showinfo("Success", f"Preset '{preset_name}' saved!")
             
         except Exception as e:
-            self.log_message(f"Error saving preset: {e}", "buffer")
+            self.log_message(f"Error saving preset: {e}", "overlay")
             messagebox.showerror("Error", f"Failed to save preset:\n{e}")
 
     def get_current_encoder_settings(self):
@@ -13604,7 +13587,7 @@ class DVBT2EncoderGUI:
         # Парсим команду и обновляем GUI-контролы
         self.parse_and_update_gui_from_command(command)
         
-        self.log_message(f"Applied preset '{preset_name}'", "buffer")
+        self.log_message(f"Applied preset '{preset_name}'", "overlay")
 
     def parse_and_update_gui_from_command(self, command):
         """Парсит команду и обновляет соответствующие GUI переменные"""
@@ -13792,7 +13775,7 @@ class DVBT2EncoderGUI:
             self.encoder_preset_name.set("")
             if hasattr(self, 'encoder_preset_combo'):
                 self.encoder_preset_combo.set("")
-            self.log_message("Preset cleared due to manual setting change", "buffer")
+            self.log_message("Preset cleared due to manual setting change", "overlay")
         
         # Обновляем отображение базовой команды
         self.update_encoder_command_display()
@@ -13809,7 +13792,7 @@ class DVBT2EncoderGUI:
             try:
                 if os.path.exists(filepath):
                     os.remove(filepath)
-                    self.log_message(f"Preset '{preset_name}' deleted", "buffer")
+                    self.log_message(f"Preset '{preset_name}' deleted", "overlay")
                     
                     # Обновляем список
                     self.load_encoder_presets()
@@ -13824,7 +13807,7 @@ class DVBT2EncoderGUI:
                     
                     messagebox.showinfo("Success", f"Preset '{preset_name}' deleted")
             except Exception as e:
-                self.log_message(f"Error deleting preset: {e}", "buffer")
+                self.log_message(f"Error deleting preset: {e}", "overlay")
                 messagebox.showerror("Error", f"Failed to delete preset:\n{e}")
 
     def reset_encoder_to_default(self):
@@ -13833,7 +13816,7 @@ class DVBT2EncoderGUI:
         if hasattr(self, 'encoder_preset_combo'):
             self.encoder_preset_combo.set("")
         self.update_encoder_command_display()
-        self.log_message("Reset to default encoder settings", "buffer")
+        self.log_message("Reset to default encoder settings", "overlay")
         self.save_config()  # Сохраняем, что пресет не выбран
 
     def save_encoder_preset_dialog(self):
@@ -13979,7 +13962,10 @@ class DVBT2EncoderGUI:
         
         
         # Выходные параметры
+        muxrate = float(self.muxrate.get())
         buffer_bytes = self.get_udp_buffer_bytes()
+        fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+        burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
         cmd += (
             f'-f mpegts -max_delay 300K -max_interleave_delta 4M '
             f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} -pcr_period 40 '
@@ -13992,7 +13978,7 @@ class DVBT2EncoderGUI:
             f'-metadata title="{self.service_name.get()}" '
             f'-metadata artist="{self.service_name.get()}" '
             f'-flush_packets 0 -muxrate {self.muxrate.get()} '
-            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1&burst_bits=1" '
+            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&overrun_nonfatal=1&burst_bits={burst_bits_val}" '
         )
         
         return cmd
@@ -14047,7 +14033,7 @@ class DVBT2EncoderGUI:
                     # Radio mode uses separate method
                     return self.build_radio_channel_command(channel_num, channel_data, output_port)
                 else:
-                    cmd += f' -timeout 2000000 -reconnect 0 -i "{url}" '
+                    cmd += f' -timeout 2000000 -reconnect 0 -thread_queue_size 2048 -i "{url}" '
                     
         elif source_type == "grab_window":
             capture_method = channel_data['capture_method'].get()
@@ -14055,7 +14041,7 @@ class DVBT2EncoderGUI:
             audio_device = channel_data['audio_device'].get().strip()
             
             if not window_value:
-                self.log_message(f"CH{channel_num}: No window/process selected", "buffer")
+                self.log_message(f"CH{channel_num}: No window/process selected", "monitor")
                 return None
             
             if capture_method == 'gdigrab':
@@ -14107,7 +14093,11 @@ class DVBT2EncoderGUI:
         elif source_type == "UDP_MPTS":
             url = channel_data['udp_url'].get().strip()
             if url:
-                cmd += f'-timeout 2000000 -i "{url}" '
+                muxrate = float(self.muxrate.get())
+                buffer_bytes = self.get_udp_buffer_bytes()
+                fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+                burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+                cmd += f'-timeout 2000000 -thread_queue_size 2048 -i "{url}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&burst_bits={burst_bits_val}&overrun_nonfatal=1" '
         
         # Get bitrates
         video_bitrate, audio_bitrate, _ = self.get_channel_bitrates()
@@ -14119,7 +14109,7 @@ class DVBT2EncoderGUI:
             cmd += f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} '
         else:
             # Fallback если encoder_cmd пустой
-            self.log_message(f"CH{channel_num}: Warning - encoder command is empty", "buffer")
+            self.log_message(f"CH{channel_num}: Warning - encoder command is empty", "monitor")
             return None        
         
         # Metadata
@@ -14134,8 +14124,13 @@ class DVBT2EncoderGUI:
         
         # Output
         cmd += f'-f mpegts -flush_packets 0 '
+        cmd += f'-mpegts_pmt_start_pid 4096 -mpegts_flags resend_headers -mpegts_start_pid 256 -mpegts_flags system_b '
+        cmd += f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 -pcr_period 40 -pat_period 0.4 -sdt_period 0.5 '
+        muxrate = float(self.muxrate.get())
         buffer_bytes = self.get_udp_buffer_bytes()
-        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1"'
+        fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+        burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&overrun_nonfatal=1"'
         
         return cmd
 
@@ -14152,8 +14147,11 @@ class DVBT2EncoderGUI:
         for ch_num, channel_data in self.multiplex_channels.items():
             if channel_data['enabled'].get():
                 output_port = self.base_multicast_port + ch_num - 1
+                muxrate = float(self.muxrate.get())
                 buffer_bytes = self.get_udp_buffer_bytes()
-                cmd += f'-i "udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={buffer_bytes}&overrun_nonfatal=1" '
+                fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+                burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+                cmd += f'-thread_queue_size 2048 -i "udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&burst_bits={burst_bits_val}&overrun_nonfatal=1" '
                 active_channels.append((ch_num, channel_data, input_index))
                 input_index += 1
         
@@ -14192,6 +14190,7 @@ class DVBT2EncoderGUI:
         
         # Multiplexing parameters
         cmd += '-c copy -movflags +faststart '
+        cmd += '-mpegts_flags resend_headers+initial_discontinuity '
         buffer_bytes = self.get_udp_buffer_bytes()
         cmd += self.get_mpegts_output_params()
         
@@ -14228,7 +14227,7 @@ class DVBT2EncoderGUI:
         """Start main multiplexer process"""
         cmd = self.build_main_multiplexer_command()
         if not cmd:
-            self.log_message("Failed to build multiplexer command", "buffer")
+            self.log_message("Failed to build multiplexer command", "monitor")
             return
         
         try:
@@ -14246,17 +14245,17 @@ class DVBT2EncoderGUI:
                 daemon=True
             ).start()
             
-            self.log_message(f"Main multiplexer started (PID: {self.main_multiplexer_process.pid})", "buffer")
+            self.log_message(f"Main multiplexer started (PID: {self.main_multiplexer_process.pid})", "overlay")
             
         except Exception as e:
-            self.log_message(f"Failed to start multiplexer: {e}", "buffer")        
+            self.log_message(f"Failed to start multiplexer: {e}", "overlay")        
                         
     def start_radio_metadata_updates(self):
         """Start radio metadata updates"""
         if not self.is_streaming:
             return
         
-        self.log_message("=== SCHEDULING METADATA UPDATES ===", "buffer")
+        self.log_message("=== SCHEDULING METADATA UPDATES ===", "overlay")
         
         # Первое обновление через 5 секунд
         self.root.after(10000, self.update_radio_metadata_new)
@@ -14361,7 +14360,7 @@ class DVBT2EncoderGUI:
         # Аудио источник (URL радио)
         url = channel_data['url_input'].get().strip()
         if url:
-            cmd += f'-timeout 2000000 -i "{url}" '
+            cmd += f'-timeout 2000000 -thread_queue_size 2048 -i "{url}" '
         
         # Filter complex
         cmd += f'-filter_complex "[0:v]{filter_complex}[vout]" '
@@ -14376,7 +14375,8 @@ class DVBT2EncoderGUI:
             cmd += encoder_cmd + " "
             cmd += f'-b:a {audio_bitrate} '
             cmd += f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} '
-        
+            cmd += f'-mpegts_pmt_start_pid 4096 -mpegts_flags resend_headers -mpegts_start_pid 256 -mpegts_flags system_b '
+            cmd += f'-mpegts_original_network_id 1 -mpegts_transport_stream_id 1 -pcr_period 40 -pat_period 0.4 -sdt_period 0.5 '
         # Метаданные
         service_name = channel_data['name'].get() or f"Radio_{channel_num}"
         safe_name = service_name.replace('"', '\\"')
@@ -14385,8 +14385,11 @@ class DVBT2EncoderGUI:
         
         # Выход
         cmd += f'-f mpegts -flush_packets 0 '
+        muxrate = float(self.muxrate.get())
         buffer_bytes = self.get_udp_buffer_bytes()
-        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1"'
+        fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+        burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+        cmd += f'"udp://@238.0.0.1:{output_port}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&burst_bits={burst_bits_val}&overrun_nonfatal=1"'
         
         return cmd
        
@@ -14395,7 +14398,7 @@ class DVBT2EncoderGUI:
         if not self.is_streaming:
             return
         
-        self.log_message("🔄 Restarting main multiplexer...", "buffer")
+        self.log_message("🔄 Restarting main multiplexer...", "monitor")
         
         # Убиваем старый процесс если есть
         if self.main_multiplexer_process:
@@ -14431,17 +14434,17 @@ class DVBT2EncoderGUI:
                     for error in critical_errors:
                         if error.lower() in line_stripped.lower():
                             error_detected = True
-                            self.log_message(f"[Multiplexer] CRITICAL: {line_stripped[:200]}", "buffer")
+                            self.log_message(f"[Multiplexer] CRITICAL: {line_stripped[:200]}", "monitor")
                             break
                     
                     if error_detected:
-                        self.log_message("🔄 Restarting multiplexer due to error", "buffer")
+                        self.log_message("🔄 Restarting multiplexer due to error", "monitor")
                         self.restart_multiplexer()
                         return
                     
                     # Логирование обычных ошибок
                     if any(word in line_stripped.lower() for word in ['warning', 'deprecated']):
-                        self.log_message(f"[Multiplexer] {line_stripped[:100]}", "buffer")
+                        self.log_message(f"[Multiplexer] {line_stripped[:100]}", "ffmpeg")
                     
                     # Парсинг статистики
                     if "bitrate=" in line_stripped:
@@ -14463,19 +14466,19 @@ class DVBT2EncoderGUI:
                                 
         except Exception as e:
             if self.is_streaming:
-                self.log_message(f"Multiplexer monitor error: {e}", "buffer")
+                self.log_message(f"Multiplexer monitor error: {e}", "monitor")
         
         # Проверка, не упал ли процесс
         if self.main_multiplexer_process and self.main_multiplexer_process.poll() is not None:
             return_code = self.main_multiplexer_process.poll()
             if return_code != 0 and self.is_streaming:
-                self.log_message(f"Multiplexer crashed with code {return_code}, restarting...", "buffer")
+                self.log_message(f"Multiplexer crashed with code {return_code}, restarting...", "monitor")
                 self.restart_multiplexer()
                        
     def update_radio_metadata_new(self):
         """Простая версия - только логирование и планирование"""
         if not self.is_streaming:
-            self.log_message("[METADATA] Not streaming, skipping", "buffer")
+            self.log_message("[METADATA] Not streaming, skipping", "monitor")
             return
         
         # Просто считаем радио-каналы
@@ -14497,7 +14500,7 @@ class DVBT2EncoderGUI:
                             daemon=True
                         ).start()
                     else:
-                        self.log_message(f"[METADATA] CH{ch_num}: skipping (state={self.channel_states.get(ch_num)})", "buffer")
+                        self.log_message(f"[METADATA] CH{ch_num}: skipping (state={self.channel_states.get(ch_num)})", "monitor")
         
         # Планируем следующий цикл
         if self.is_streaming:
@@ -14571,7 +14574,6 @@ class DVBT2EncoderGUI:
             max_chars = 100  # Максимальная длина текста
             if len(display_text) > max_chars:
                 # Обрезаем и добавляем многоточие
-                # Стараемся обрезать по границе слова
                 cutoff = display_text[:max_chars-3].rfind(' ')
                 if cutoff > max_chars // 2:  # Если нашли хорошее место
                     display_text = display_text[:cutoff] + "..."
@@ -14614,22 +14616,17 @@ class DVBT2EncoderGUI:
                 # Сохраняем последний отправленный текст
                 setattr(self, last_key, display_text)  # ← Используем last_key
                 
-                # Логируем (как в старом коде)
-                # self.log_message(
-                    # f"Updated CH{channel_num} (filter {metadata_idx}, font {fontsize}px): {display_text[:60]}...",
-                    # "buffer"
-                # )
                 
             except BrokenPipeError:
-                self.log_message(f"FFmpeg process pipe closed for CH{channel_num}", "buffer")
+                self.log_message(f"FFmpeg process pipe closed for CH{channel_num}", "overlay")
             except Exception as e:
                 if "I/O operation on closed file" in str(e):
-                    self.log_message(f"FFmpeg stdin closed for CH{channel_num}", "buffer")
+                    self.log_message(f"FFmpeg stdin closed for CH{channel_num}", "overlay")
                 else:
-                    self.log_message(f"Error sending command to FFmpeg CH{channel_num}: {str(e)[:80]}", "buffer")
+                    self.log_message(f"Error sending command to FFmpeg CH{channel_num}: {str(e)[:80]}", "overlay")
                     
         except Exception as e:
-            self.log_message(f"Metadata update error CH{channel_num}: {str(e)[:100]}", "buffer")
+            self.log_message(f"Metadata update error CH{channel_num}: {str(e)[:100]}", "monitor")
                                                                                      
     def get_channel_bitrates(self):
         """Calculate VIDEO bitrate per channel based on active channel count with audio bitrate consideration"""
@@ -14672,12 +14669,12 @@ class DVBT2EncoderGUI:
                 audio_bitrate_output = f"{audio_bitrate_kbps}k"
                 
                 # Логируем
-                self.log_message(f"SIMPLE mode: Mux={muxrate_kbps:.1f}k, Audio={audio_bitrate_kbps}k, Video={video_bitrate_calculated}k", "buffer")
+                self.log_message(f"SIMPLE mode: Mux={muxrate_kbps:.1f}k, Audio={audio_bitrate_kbps}k, Video={video_bitrate_calculated}k", "ffmpeg")
                 
                 return video_bitrate_calculated, audio_bitrate_output, 1
                 
             except Exception as e:
-                self.log_message(f"SIMPLE mode calc error: {e}", "buffer")
+                self.log_message(f"SIMPLE mode calc error: {e}", "ffmpeg")
                 return 1000, "128k", 1
         
         # МУЛЬТИПЛЕКС РЕЖИМ - оригинальный код
@@ -14755,12 +14752,12 @@ class DVBT2EncoderGUI:
             bufsize = max(50, int(available_video_after_audio * buf_factor))
             self.video_bufsize.set(str(bufsize))
             
-            self.log_message(f"  Result: Video={video_per_channel}k per channel, Audio={audio_bitrate_output} per channel", "buffer")
+            self.log_message(f"  Result: Video={video_per_channel}k per channel, Audio={audio_bitrate_output} per channel", "ffmpeg")
             
             return video_per_channel, audio_bitrate_output, active_count
             
         except Exception as e:
-            self.log_message(f"MULTIPLEX mode calc error: {e}", "buffer")
+            self.log_message(f"MULTIPLEX mode calc error: {e}", "ffmpeg")
             import traceback
             traceback.print_exc()
             return 1000, "128k", 1  # Значения по умолчанию
@@ -14768,8 +14765,10 @@ class DVBT2EncoderGUI:
     def get_mpegts_output_params(self):
         """Get MPEG-TS output parameters with configurable UDP buffer size"""
         
+        muxrate = float(self.muxrate.get())
         buffer_bytes = self.get_udp_buffer_bytes()
-        
+        fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+        burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
         return (
             f'-f mpegts -max_delay 300K -max_interleave_delta 4M '
             f'-muxdelay {self.video_muxdelay.get()} -muxpreload {self.video_muxpreload.get()} -pcr_period 40 '
@@ -14780,7 +14779,7 @@ class DVBT2EncoderGUI:
             f'-metadata service_provider="{self.service_provider.get()}" '
             f'-metadata service_name="{self.service_name.get()}" '
             f'-flush_packets 0 -muxrate {self.muxrate.get()} '
-            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1&burst_bits=1"'  # ← ИСПОЛЬЗУЙТЕ ЗДЕСЬ
+            f'"udp://{self.localhost_ip.get()}:{self.udp_input_port.get()}?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&overrun_nonfatal=1&burst_bits={burst_bits_val}"'  # ← ИСПОЛЬЗУЙТЕ ЗДЕСЬ
         )
         
     def show_multiplex_ffmpeg_command(self):
@@ -14817,8 +14816,11 @@ class DVBT2EncoderGUI:
                 emergency_cmd += f'-ar {self.audio_sample_rate.get()} -ac {self.get_audio_channels_ffmpeg()} '
                 emergency_cmd += f'-metadata service_provider="EMERGENCY" '
                 emergency_cmd += f'-metadata service_name="Emergency CH" '
+                muxrate = float(self.muxrate.get())
                 buffer_bytes = self.get_udp_buffer_bytes()
-                emergency_cmd += f'-f mpegts "udp://@238.0.0.1:"CH_Port"?pkt_size=1316&buffer_size={buffer_bytes}&overrun_nonfatal=1"'
+                fifo_packets = int(self.udp_buffer_size.get() * 1024 * 1024 ) // 188 # fifo_size s->circular_buffer_size = strol(buf, NULL, 10)*188; circular_buffer_size = 7*188*4096 - default 5MB fifo size
+                burst_bits_val = max(1, int((muxrate * 0.01) // 10528)) * 10528
+                emergency_cmd += f'-f mpegts "udp://@238.0.0.1:"CH_Port"?pkt_size=1316&buffer_size={buffer_bytes}&fifo_size={fifo_packets}&burst_bits={burst_bits_val}&overrun_nonfatal=1"'
                 
                 full_text += emergency_cmd + "\n\n"
             else:
@@ -14861,7 +14863,7 @@ class DVBT2EncoderGUI:
             copy_btn.pack(pady=(0, 10))
             
         except Exception as e:
-            self.log_message(f"Error showing command: {e}", "buffer")
+            self.log_message(f"Error showing command: {e}", "ffmpeg")
             messagebox.showerror("Error", f"Error building FFmpeg command:\n{str(e)}") 
             
     def browse_emergency_file(self):
