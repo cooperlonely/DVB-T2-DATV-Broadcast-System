@@ -1,0 +1,28 @@
+{
+    "parameters": {
+        "channel_bandwidth": "8 MHz",
+        "fft_size": "8K",
+        "guard_interval": "1/32",
+        "data_symbols": 239,
+        "fec_blocks": 100.0,
+        "code_rate": "3/5",
+        "modulation": "16QAM",
+        "frame_size": "Normal",
+        "carrier_mode": "Extended",
+        "pilot_pattern": "PP7",
+        "l1_modulation": "BPSK",
+        "total_cells": 1631112,
+        "dummy_cells": 6812,
+        "useful_cells": 1620000
+    },
+    "results": {
+        "normal_bitrate_bps": 17320150.017047,
+        "normal_bitrate_kbps": 17320.150017047,
+        "normal_bitrate_mbps": 17.320150017047,
+        "high_efficiency_bitrate_bps": 17412771.140133,
+        "high_efficiency_bitrate_kbps": 17412.771140133,
+        "high_efficiency_bitrate_mbps": 17.412771140133,
+        "frame_time_ms": 222.908,
+        "clock_rate": 9142857.142857
+    }
+}

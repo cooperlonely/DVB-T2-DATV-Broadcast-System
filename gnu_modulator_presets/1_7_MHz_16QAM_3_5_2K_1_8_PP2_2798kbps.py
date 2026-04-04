@@ -67,7 +67,7 @@ class DVB_1_7_MHz_16QAM_3_5_2K_1_8_PP2_2798kbps(gr.top_block, Qt.QWidget):
     
         self.zmq_address = zmq_address = "tcp://127.0.0.1:8002"
         self.sample = sample = 1845070
-        self.rf_gain = rf_gain = 0
+        self.rf_gain = rf_gain = 6
         
         self.pluto_ip = pluto_ip = "ip:192.168.80.70"
         self.frequency = frequency = 425000000

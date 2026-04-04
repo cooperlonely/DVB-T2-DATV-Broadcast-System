@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0
 #
 # GNU Radio Python Flow Graph
-# Title: DVB-T2 1.7 MHz QPSK 1/2
+# Title: DVB-T2 8 MHz 256QAM 4/5
 # Author: DVB-T2 Calculator
 # GNU Radio version: 3.10.10.0
 
@@ -29,7 +29,7 @@ from gnuradio import zeromq
 from xmlrpc.server import SimpleXMLRPCServer
 import threading
 
-class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
+class DVB_8_MHz_256QAM_4_5_8K_1_128_PP7_47384kbps(gr.top_block, Qt.QWidget):
 
     def __init__(self):
         gr.top_block.__init__(self, "DVB-T2 Modulator", catch_exceptions=True)
@@ -52,7 +52,7 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
         self.top_grid_layout = Qt.QGridLayout()
         self.top_layout.addLayout(self.top_grid_layout)
 
-        self.settings = Qt.QSettings("GNU Radio", "DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps")
+        self.settings = Qt.QSettings("GNU Radio", "DVB_8_MHz_256QAM_4_5_8K_1_128_PP7_47384kbps")
 
         try:
             geometry = self.settings.value("geometry")
@@ -66,12 +66,12 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
         ##################################################
     
         self.zmq_address = zmq_address = "tcp://127.0.0.1:8002"
-        self.sample = sample = 1845070
+        self.sample = sample = 9142857
         self.rf_gain = rf_gain = 6
         
         self.pluto_ip = pluto_ip = "ip:192.168.80.70"
         self.frequency = frequency = 425000000
-        self.bandwidth = bandwidth = 1845070
+        self.bandwidth = bandwidth = 9142857
         
         
 
@@ -99,54 +99,54 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
 
 
         self.dtv_dvbt2_pilotgenerator_cc_0 = dtv.dvbt2_pilotgenerator_cc(
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.PILOT_PP1,
-            dtv.GI_1_4,
-            342,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_8K,
+            dtv.PILOT_PP7,
+            dtv.GI_1_128,
+            240,
             dtv.PAPR_OFF,
             dtv.VERSION_131,
             dtv.PREAMBLE_T2_SISO,
             dtv.MISO_TX1,
             dtv.EQUALIZATION_OFF,
-            dtv.BANDWIDTH_1_7_MHZ,
-            1024
+            dtv.BANDWIDTH_8_0_MHZ,
+            8192
             )
         self.dtv_dvbt2_p1insertion_cc_0 = dtv.dvbt2_p1insertion_cc(
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.GI_1_4,
-            342,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_8K,
+            dtv.GI_1_128,
+            240,
             dtv.PREAMBLE_T2_SISO,
             dtv.SHOWLEVELS_OFF,
             3.3
             )
-        self.dtv_dvbt2_modulator_bc_0 = dtv.dvbt2_modulator_bc(dtv.FECFRAME_NORMAL, dtv.MOD_QPSK, dtv.ROTATION_ON)
-        self.dtv_dvbt2_interleaver_bb_0 = dtv.dvbt2_interleaver_bb(dtv.FECFRAME_NORMAL, dtv.C1_2, dtv.MOD_QPSK)
+        self.dtv_dvbt2_modulator_bc_0 = dtv.dvbt2_modulator_bc(dtv.FECFRAME_NORMAL, dtv.MOD_256QAM, dtv.ROTATION_ON)
+        self.dtv_dvbt2_interleaver_bb_0 = dtv.dvbt2_interleaver_bb(dtv.FECFRAME_NORMAL, dtv.C4_5, dtv.MOD_256QAM)
         self.dtv_dvbt2_freqinterleaver_cc_0 = dtv.dvbt2_freqinterleaver_cc(
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.PILOT_PP1,
-            dtv.GI_1_4,
-            342,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_8K,
+            dtv.PILOT_PP7,
+            dtv.GI_1_128,
+            240,
             dtv.PAPR_OFF,
             dtv.VERSION_131,
             dtv.PREAMBLE_T2_SISO
             )
         self.dtv_dvbt2_framemapper_cc_0 = dtv.dvbt2_framemapper_cc(
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2,
-            dtv.MOD_QPSK,
+            dtv.C4_5,
+            dtv.MOD_256QAM,
             dtv.ROTATION_ON,
-            8,
+            201,
             3,
-            dtv.CARRIERS_NORMAL,
-            dtv.FFTSIZE_1K,
-            dtv.GI_1_4,
-            dtv.L1_MOD_QPSK,
-            dtv.PILOT_PP1,
+            dtv.CARRIERS_EXTENDED,
+            dtv.FFTSIZE_8K,
+            dtv.GI_1_128,
+            dtv.L1_MOD_BPSK,
+            dtv.PILOT_PP7,
             2,
-            342,
+            240,
             dtv.PAPR_OFF,
             dtv.VERSION_131,
             dtv.PREAMBLE_T2_SISO,
@@ -154,37 +154,40 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
             dtv.RESERVED_OFF,
             dtv.L1_SCRAMBLED_OFF,
             dtv.INBAND_ON)
-        self.dtv_dvbt2_cellinterleaver_cc_0 = dtv.dvbt2_cellinterleaver_cc(dtv.FECFRAME_NORMAL, dtv.MOD_QPSK, 8, 3)
+        self.dtv_dvbt2_cellinterleaver_cc_0 = dtv.dvbt2_cellinterleaver_cc(dtv.FECFRAME_NORMAL, dtv.MOD_256QAM, 201, 3)
         self.dtv_dvb_ldpc_bb_0 = dtv.dvb_ldpc_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2,
+            dtv.C4_5,
             dtv.MOD_OTHER)
         self.dtv_dvb_bch_bb_0 = dtv.dvb_bch_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2
+            dtv.C4_5
             )
         self.dtv_dvb_bbscrambler_bb_0 = dtv.dvb_bbscrambler_bb(
             dtv.STANDARD_DVBT2,
             dtv.FECFRAME_NORMAL,
-            dtv.C1_2
+            dtv.C4_5
             )
         self.dtv_dvb_bbheader_bb_0 = dtv.dvb_bbheader_bb(
         dtv.STANDARD_DVBT2,
         dtv.FECFRAME_NORMAL,
-        dtv.C1_2,
+        dtv.C4_5,
         dtv.RO_0_35,
         dtv.INPUTMODE_NORMAL,
         dtv.INBAND_ON,
-        8,
-        1030284)
+        201,
+        47383625)
         self.digital_ofdm_cyclic_prefixer_0 = digital.ofdm_cyclic_prefixer(
-            1024,
-            1024 + (1024 * 1) // 4,
+            8192,
+            8192 + (8192 * 1) // 128,
             0,
             '')
         self.blocks_multiply_const_xx_0 = blocks.multiply_const_cc(0.3, 1)
+
+
+
         ##################################################
         # Connections
         ##################################################
@@ -204,7 +207,7 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
         self.connect((self.dtv_dvbt2_pilotgenerator_cc_0, 0), (self.digital_ofdm_cyclic_prefixer_0, 0))
         self.connect((self.zeromq_sub_source_0, 0), (self.dtv_dvb_bbheader_bb_0, 0))
     def closeEvent(self, event):
-        self.settings = Qt.QSettings("GNU Radio", "DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps")
+        self.settings = Qt.QSettings("GNU Radio", "DVB_8_MHz_256QAM_4_5_8K_1_128_PP7_47384kbps")
         self.settings.setValue("geometry", self.saveGeometry())
         self.stop()
         self.wait()
@@ -222,6 +225,7 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
     def set_rf_gain(self, rf_gain):
         self.rf_gain = rf_gain
         self.iio_pluto_sink_0_0.set_attenuation(0, self.rf_gain)
+
     def get_frequency(self):
         return self.frequency
 
@@ -245,7 +249,7 @@ class DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps(gr.top_block, Qt.QWidget):
         return "Application quit"
 
 
-def main(top_block_cls=DVB_1_7_MHz_QPSK_1_2_1K_1_4_PP1_1030kbps, options=None):
+def main(top_block_cls=DVB_8_MHz_256QAM_4_5_8K_1_128_PP7_47384kbps, options=None):
 
     qapp = Qt.QApplication(sys.argv)
 
