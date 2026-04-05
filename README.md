@@ -1,17 +1,17 @@
 # DVB-T2-DATV-Broadcast-System
 this is app based on:
-GNU Radio gr-dtv(modulator), 
-FFmpeg (Encoder)
-dvb2rate.c file from dr.mpeg Ron Economos https://github.com/drmpeg/dtv-utils/blob/master/dvbt2rate.c
+* GNU Radio gr-dtv(modulator), 
+* FFmpeg (Encoder)
+* dvb2rate.c file from dr.mpeg Ron Economos https://github.com/drmpeg/dtv-utils/blob/master/dvbt2rate.c
 compiled with deepseek instructions to dvbt2rate.exe (t2calculator)
-DummyTS Generator - created with deepseek, based on c++ libs from DatvExpress G4GUO Charles Brain https://github.com/G4GUO/datvexpress_gui/tree/master/Sources
-this is app created only for radioamateurs, enthusiasts, scientific experiments.
+* DummyTS Generator - created with deepseek, based on c++ libs from DatvExpress G4GUO Charles Brain https://github.com/G4GUO/datvexpress_gui/tree/master/Sources
+* this is app created only for radioamateurs, enthusiasts, scientific experiments.
 don't use it illegal, shield the room in which you conduct experiments!
-if anyone can help me with export and build external exe app, like dvbt2rate.exe, where we can run SDR modulation T2 scheme with command prompt, and don't use very big resources from GNU Radio, I will be very grateful.
-if u have any other idea to inplement to logic of this app, let me know or do it yourself and share with us.
-I would like to express my deepest gratitude to Ron Economos for his invaluable contribution to my first steps in using 1.7MHz BW T2!
+* if anyone can help me with export and build external exe app, like dvbt2rate.exe, where we can run SDR modulation T2 scheme with command prompt, and don't use very big resources from GNU Radio, I will be very grateful.
+* if u have any other idea to inplement to logic of this app, let me know or do it yourself and share with us.
+* I would like to express my deepest gratitude to Ron Economos for his invaluable contribution to my first steps in using 1.7MHz BW T2!
 
-R6WAX Vibe Coding Project for those, who want, but can't.
+* R6WAX Vibe Coding Project for those, who want, but can't.
 
 ![main_tab](https://github.com/user-attachments/assets/466bd3a5-5850-4876-b82f-e0c0ed65e661)
 
